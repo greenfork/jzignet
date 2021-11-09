@@ -5,13 +5,28 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const lib = b.addStaticLibrary("jzignet", "src/main.zig");
-    lib.setBuildMode(mode);
-    lib.install();
+    const janet_lib = b.addStaticLibrary("janet", null);
+    janet_lib.addCSourceFile(
+        "c/janet.c",
+        &[_][]const u8{ "-std=c99", "-O2", "-flto", "-Wall", "-Wextra", "-fvisibility=hidden" },
+    );
+    janet_lib.linkLibC();
+    janet_lib.setBuildMode(mode);
 
-    var main_tests = b.addTest("src/main.zig");
-    main_tests.setBuildMode(mode);
+    const lib = b.addStaticLibrary("jzignet", "src/janet.zig");
+    lib.addIncludeDir("c");
+    lib.linkLibC();
+    lib.linkLibrary(janet_lib);
+    lib.setBuildMode(mode);
+    // lib.install();
+
+    var tests = b.addTest("src/janet.zig");
+    tests.setBuildMode(mode);
+    tests.addIncludeDir("c");
+    tests.addIncludeDir("c");
+    tests.linkLibC();
+    tests.linkLibrary(janet_lib);
 
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_tests.step);
+    test_step.dependOn(&tests.step);
 }
