@@ -15,8 +15,6 @@ pub fn deinit() void {
 
 pub const Janet = struct {
     ptr: *c.Janet,
-
-    const Self = @This();
 };
 
 pub const Table = struct {
@@ -24,7 +22,7 @@ pub const Table = struct {
 
     const Self = @This();
 
-    pub fn core_env(replacements: ?Self) Self {
+    pub fn coreEnv(replacements: ?Self) Self {
         if (replacements) |r| {
             return Self{ .ptr = c.janet_core_env(r.ptr) };
         } else {
@@ -86,6 +84,6 @@ pub const Table = struct {
 test "hello world" {
     try init();
     defer deinit();
-    const env: Table = Table.core_env(null);
+    const env: Table = Table.coreEnv(null);
     try env.dostring("(prin `hello, world!`)", "main", null);
 }
