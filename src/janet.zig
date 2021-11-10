@@ -88,6 +88,30 @@ const JanetType = extern enum {
     pointer,
 };
 
+pub const TFLAG_NIL = (1 << @enumToInt(JanetType.nil));
+pub const TFLAG_BOOLEAN = (1 << @enumToInt(JanetType.boolean));
+pub const TFLAG_FIBER = (1 << @enumToInt(JanetType.fiber));
+pub const TFLAG_NUMBER = (1 << @enumToInt(JanetType.number));
+pub const TFLAG_STRING = (1 << @enumToInt(JanetType.string));
+pub const TFLAG_SYMBOL = (1 << @enumToInt(JanetType.symbol));
+pub const TFLAG_KEYWORD = (1 << @enumToInt(JanetType.keyword));
+pub const TFLAG_ARRAY = (1 << @enumToInt(JanetType.array));
+pub const TFLAG_TUPLE = (1 << @enumToInt(JanetType.tuple));
+pub const TFLAG_TABLE = (1 << @enumToInt(JanetType.table));
+pub const TFLAG_STRUCT = (1 << @enumToInt(JanetType.@"struct"));
+pub const TFLAG_BUFFER = (1 << @enumToInt(JanetType.buffer));
+pub const TFLAG_FUNCTION = (1 << @enumToInt(JanetType.function));
+pub const TFLAG_CFUNCTION = (1 << @enumToInt(JanetType.cfunction));
+pub const TFLAG_ABSTRACT = (1 << @enumToInt(JanetType.abstract));
+pub const TFLAG_POINTER = (1 << @enumToInt(JanetType.pointer));
+
+// Some abstractions
+pub const TFLAG_BYTES = TFLAG_STRING | TFLAG_SYMBOL | TFLAG_BUFFER | TFLAG_KEYWORD;
+pub const TFLAG_INDEXED = TFLAG_ARRAY | TFLAG_TUPLE;
+pub const TFLAG_DICTIONARY = TFLAG_TABLE | TFLAG_STRUCT;
+pub const TFLAG_LENGTHABLE = TFLAG_BYTES | TFLAG_INDEXED | TFLAG_DICTIONARY;
+pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE | TFLAG_ABSTRACT;
+
 // Missing type unwraps:
 // const JanetKV *janet_unwrap_struct(Janet x);
 // JanetFiber *janet_unwrap_fiber(Janet x);
@@ -113,7 +137,7 @@ pub fn JanetMixin(comptime Self: type) type {
 
         pub fn unwrapBoolean(self: Self) !bool {
             if (!self.checktype(.boolean)) return error.NotBoolean;
-            return 1 == c.janet_unwrap_boolean(self.toCJanet());
+            return c.janet_unwrap_boolean(self.toCJanet()) > 0;
         }
 
         pub fn unwrapTuple(self: Self) ![*]const Self {
@@ -139,12 +163,20 @@ pub fn JanetMixin(comptime Self: type) type {
             return std.mem.span(@ptrCast([*:0]const u8, rs));
         }
 
-        pub fn toCJanet(self: Self) c.Janet {
-            return @ptrCast(*const c.Janet, &self).*;
+        pub fn checktype(self: Self, typ: JanetType) bool {
+            return c.janet_checktype(self.toCJanet(), @ptrCast(*const c.JanetType, &typ).*) > 0;
         }
 
-        pub fn checktype(self: Self, typ: JanetType) bool {
-            return 1 == c.janet_checktype(self.toCJanet(), @ptrCast(*const c.JanetType, &typ).*);
+        pub fn checktypes(self: Self, typeflags: i32) bool {
+            return c.janet_checktypes(self.toCJanet(), typeflags) > 0;
+        }
+
+        pub fn janetType(self: Self) JanetType {
+            return @ptrCast(*JanetType, &c.janet_type(self.toCJanet())).*;
+        }
+
+        pub fn toCJanet(self: Self) c.Janet {
+            return @ptrCast(*const c.Janet, &self).*;
         }
     };
 }
@@ -255,5 +287,30 @@ test "unwrap values" {
         var value: Janet = undefined;
         try env.dostring("'str", "main", &value);
         try testing.expectEqualStrings("str", try value.unwrapSymbol());
+    }
+}
+
+test "janet_type" {
+    try init();
+    defer deinit();
+    const env: Table = Table.coreEnv(null);
+    var value: Janet = undefined;
+    try env.dostring("1", "main", &value);
+    try testing.expectEqual(JanetType.number, value.janetType());
+}
+
+test "janet_checktypes" {
+    try init();
+    defer deinit();
+    const env: Table = Table.coreEnv(null);
+    {
+        var value: Janet = undefined;
+        try env.dostring("1", "main", &value);
+        try testing.expectEqual(true, value.checktypes(TFLAG_NUMBER));
+    }
+    {
+        var value: Janet = undefined;
+        try env.dostring(":str", "main", &value);
+        try testing.expectEqual(true, value.checktypes(TFLAG_BYTES));
     }
 }
