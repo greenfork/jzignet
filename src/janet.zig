@@ -140,9 +140,12 @@ pub fn JanetMixin(comptime Self: type) type {
             return c.janet_unwrap_boolean(self.toCJanet()) > 0;
         }
 
-        pub fn unwrapTuple(self: Self) ![*]const Self {
+        pub fn unwrapTuple(self: Self) ![]const Self {
             if (!self.checktype(.tuple)) return error.NotTuple;
-            return @ptrCast([*]const Self, c.janet_unwrap_tuple(self.toCJanet()));
+            const ptr = @ptrCast([*]const Self, c.janet_unwrap_tuple(self.toCJanet()));
+            const head = try ptr[0].tupleHead();
+            const l = @intCast(usize, head.length);
+            return ptr[0..l];
         }
 
         pub fn unwrapString(self: Self) ![]const u8 {
@@ -175,15 +178,38 @@ pub fn JanetMixin(comptime Self: type) type {
             return @ptrCast(*JanetType, &c.janet_type(self.toCJanet())).*;
         }
 
-        pub fn toCJanet(self: Self) c.Janet {
-            return @ptrCast(*const c.Janet, &self).*;
+        pub fn tupleHead(self: *const Self) !*TupleHead {
+            const head = c.janet_tuple_head(@ptrCast(*const c.Janet, self));
+            const aligned_head = @alignCast(@alignOf(*TupleHead), head);
+            return @ptrCast(*TupleHead, aligned_head);
+        }
+
+        pub fn toCJanet(self: *const Self) c.Janet {
+            return @ptrCast(*const c.Janet, self).*;
         }
     };
 }
 
-pub const JanetKV = extern struct {
+pub const KV = extern struct {
     key: Janet,
     value: Janet,
+};
+
+pub const GCObject = extern struct {
+    flags: i32,
+    blocks: extern union {
+        next: *GCObject,
+        refcount: i32,
+    },
+};
+
+pub const TupleHead = extern struct {
+    gc: GCObject,
+    length: i32,
+    hash: i32,
+    sm_line: i32,
+    sm_column: i32,
+    data: [*]const Janet,
 };
 
 pub const Table = struct {
@@ -199,20 +225,19 @@ pub const Table = struct {
         }
     }
 
-    pub fn dostring(self: Self, str: []const u8, source_path: []const u8, out: ?*Janet) !void {
+    pub fn dostring(self: Self, str: [:0]const u8, source_path: [:0]const u8, out: ?*Janet) !void {
         return try dobytes(self, str, @intCast(i32, str.len), source_path, out);
     }
 
     pub fn dobytes(
         self: Self,
-        bytes: []const u8,
+        bytes: [:0]const u8,
         length: i32,
-        source_path: []const u8,
+        source_path: [:0]const u8,
         out: ?*Janet,
     ) !void {
         const errflags = blk: {
             if (out) |o| {
-                // @compileLog("o type ", @TypeOf(o));
                 break :blk c.janet_dobytes(
                     self.ptr,
                     bytes.ptr,
@@ -269,6 +294,7 @@ test "unwrap values" {
         var value: Janet = undefined;
         try env.dostring("[58 true 36.0]", "main", &value);
         const tuple = try value.unwrapTuple();
+        try testing.expectEqual(@as(usize, 3), tuple.len);
         try testing.expectEqual(@as(i32, 58), try tuple[0].unwrapInteger());
         try testing.expectEqual(true, try tuple[1].unwrapBoolean());
         try testing.expectEqual(@as(f64, 36), try tuple[2].unwrapNumber());
