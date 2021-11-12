@@ -213,8 +213,6 @@ pub const Janet = blk: {
 
 // Missing type unwraps:
 // JanetFiber *janet_unwrap_fiber(Janet x);
-// void *janet_unwrap_abstract(Janet x);
-// void *janet_unwrap_pointer(Janet x);
 // JanetFunction *janet_unwrap_function(Janet x);
 // JanetCFunction janet_unwrap_cfunction(Janet x);
 
@@ -291,6 +289,16 @@ const JanetMixin = struct {
         return @ptrCast(*Table, c.janet_unwrap_table(janet.toCJanet()));
     }
 
+    pub fn unwrapPointer(janet: Janet) *c_void {
+        if (!janet.checktype(.pointer)) return error.NotPointer;
+        return c.janet_unwrap_pointer(janet.toCJanet());
+    }
+
+    pub fn unwrapAbstract(janet: Janet) *c_void {
+        if (!janet.checktype(.abstract)) return error.NotAbstract;
+        return c.janet_unwrap_abstract(janet.toCJanet());
+    }
+
     pub fn checktype(janet: Janet, typ: JanetType) bool {
         return c.janet_checktype(janet.toCJanet(), @ptrCast(*const c.JanetType, &typ).*) > 0;
     }
@@ -317,6 +325,13 @@ pub const String = [*:0]const u8;
 pub const Symbol = [*:0]const u8;
 pub const Keyword = [*:0]const u8;
 pub const Abstract = *c_void;
+
+pub const StringHead = extern struct {
+    gc: GCObject,
+    length: i32,
+    hash: i32,
+    data: [*]const u8,
+};
 
 pub const GCObject = extern struct {
     flags: i32,
@@ -442,6 +457,36 @@ pub const Table = extern struct {
     pub fn get(table: *Table, key: Janet) Janet {
         return Janet.fromCJanet(c.janet_table_get(table.toCJanet(), key.toCJanet()));
     }
+};
+
+pub const MarshalContext = extern struct {
+    m_state: *c_void,
+    u_state: *c_void,
+    flags: c_int,
+    data: [*]const u8,
+    at: *AbstractType,
+};
+
+pub const AbstractType = extern struct {
+    name: [*:0]const u8,
+    gc: ?fn (data: *c_void, len: usize) callconv(.C) c_int,
+    gcmark: ?fn (data: *c_void, len: usize) callconv(.C) c_int,
+    get: ?fn (data: *c_void, key: c.Janet, out: *c.Janet) callconv(.C) c_int,
+    put: ?fn (data: *c_void, key: c.Janet, value: c.Janet) callconv(.C) void,
+    marshal: ?fn (p: *c_void, ctx: *MarshalContext) callconv(.C) void,
+    unmarshal: ?fn (ctx: *MarshalContext) callconv(.C) *c_void,
+    tostring: ?fn (p: *c_void, buffer: *Buffer) callconv(.C) void,
+    compare: ?fn (lhs: *c_void, rhs: *c_void) callconv(.C) c_int,
+    hash: ?fn (p: *c_void, len: usize) callconv(.C) i32,
+    next: ?fn (p: *c_void, key: c.Janet) callconv(.C) Janet,
+    call: ?fn (p: *c_void, argc: i32, argv: [*]Janet) callconv(.C) Janet,
+};
+
+pub const AbstractHead = extern struct {
+    gc: GCObject,
+    @"type": *AbstractType,
+    size: usize,
+    data: [*]c_longlong,
 };
 
 test "refAllDecls" {
