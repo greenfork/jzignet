@@ -433,15 +433,7 @@ test "unwrap values" {
     {
         var value: Janet = undefined;
         try env.dostring("{:kw 2 'sym 8 98 56}", "main", &value);
-        const struc = try value.unwrapStruct();
-        const first_kv = struc.get(keywordv("kw"));
-        const second_kv = struc.get(symbolv("sym"));
-        const third_kv = struc.get(wrapInteger(98));
-        const none_kv = struc.get(wrapInteger(123));
-        try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
-        try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
-        try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
-        try testing.expectEqual(JanetType.nil, none_kv.janetType());
+        _ = try value.unwrapStruct();
     }
 }
 
@@ -468,4 +460,21 @@ test "janet_checktypes" {
         try env.dostring(":str", "main", &value);
         try testing.expectEqual(true, value.checktypes(TFLAG_BYTES));
     }
+}
+
+test "struct" {
+    try init();
+    defer deinit();
+    const env: Table = Table.coreEnv(null);
+    var value: Janet = undefined;
+    try env.dostring("{:kw 2 'sym 8 98 56}", "main", &value);
+    const struc = try value.unwrapStruct();
+    const first_kv = struc.get(keywordv("kw"));
+    const second_kv = struc.get(symbolv("sym"));
+    const third_kv = struc.get(wrapInteger(98));
+    const none_kv = struc.get(wrapInteger(123));
+    try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
+    try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
+    try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
+    try testing.expectEqual(JanetType.nil, none_kv.janetType());
 }
