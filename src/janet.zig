@@ -167,7 +167,6 @@ pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE |
 
 // Missing type unwraps:
 // JanetFiber *janet_unwrap_fiber(Janet x);
-// JanetArray *janet_unwrap_array(Janet x);
 // JanetBuffer *janet_unwrap_buffer(Janet x);
 // void *janet_unwrap_abstract(Janet x);
 // void *janet_unwrap_pointer(Janet x);
@@ -226,6 +225,11 @@ const JanetMixin = struct {
         return Tuple.init(ptr[0..l]);
     }
 
+    pub fn unwrapArray(janet: Janet) !*Array {
+        if (!janet.checktype(.array)) return error.NotArray;
+        return @ptrCast(*Array, c.janet_unwrap_array(janet.toCJanet()));
+    }
+
     pub fn unwrapStruct(janet: Janet) !Struct {
         if (!janet.checktype(.@"struct")) return error.NotStruct;
         const ptr = @ptrCast([*]const KV, c.janet_unwrap_struct(janet.toCJanet()));
@@ -247,6 +251,21 @@ const JanetMixin = struct {
 
     pub fn janetType(janet: Janet) JanetType {
         return @ptrCast(*JanetType, &c.janet_type(janet.toCJanet())).*;
+    }
+};
+
+pub const Array = struct {
+    gc: GCObject,
+    count: i32,
+    capacity: i32,
+    data: [*]Janet,
+
+    pub fn toCJanet(array: *Array) *c.JanetArray {
+        return @ptrCast(*c.JanetArray, array);
+    }
+
+    pub fn fromCJanet(janet_array: *c.JanetArray) *Array {
+        return @ptrCast(*Array, janet_array);
     }
 };
 
@@ -457,6 +476,15 @@ test "unwrap values" {
         try testing.expectEqual(@as(i32, 58), try tuple.val[0].unwrapInteger());
         try testing.expectEqual(true, try tuple.val[1].unwrapBoolean());
         try testing.expectEqual(@as(f64, 36), try tuple.val[2].unwrapNumber());
+    }
+    {
+        var value: Janet = undefined;
+        try dostring(env, "@[58 true 36.0]", "main", &value);
+        const array = try value.unwrapArray();
+        try testing.expectEqual(@as(i32, 3), array.count);
+        try testing.expectEqual(@as(i32, 58), try array.data[0].unwrapInteger());
+        try testing.expectEqual(true, try array.data[1].unwrapBoolean());
+        try testing.expectEqual(@as(f64, 36), try array.data[2].unwrapNumber());
     }
     {
         var value: Janet = undefined;
