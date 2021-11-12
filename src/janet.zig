@@ -12,6 +12,52 @@ pub fn deinit() void {
     c.janet_deinit();
 }
 
+pub fn coreEnv(replacements: ?*Table) *Table {
+    if (replacements) |r| {
+        return Table.fromCJanet(c.janet_core_env(r.toCJanet()));
+    } else {
+        return Table.fromCJanet(c.janet_core_env(null));
+    }
+}
+
+pub fn dostring(env: *Table, str: [:0]const u8, source_path: [:0]const u8, out: ?*Janet) !void {
+    return try dobytes(env, str, @intCast(i32, str.len), source_path, out);
+}
+
+pub fn dobytes(
+    env: *Table,
+    bytes: [:0]const u8,
+    length: i32,
+    source_path: [:0]const u8,
+    out: ?*Janet,
+) !void {
+    const errflags = blk: {
+        if (out) |o| {
+            break :blk c.janet_dobytes(
+                env.toCJanet(),
+                bytes.ptr,
+                length,
+                source_path.ptr,
+                @ptrCast([*c]c.Janet, o),
+            );
+        } else {
+            break :blk c.janet_dobytes(env.toCJanet(), bytes.ptr, length, source_path.ptr, null);
+        }
+    };
+    if (errflags == 0) {
+        return;
+    } else if ((errflags & 0x01) == 0x01) {
+        return error.RuntimeError;
+    } else if ((errflags & 0x02) == 0x02) {
+        return error.CompileError;
+    } else if ((errflags & 0x04) == 0x04) {
+        return error.ParseError;
+    } else {
+        return error.UnexpectedError;
+    }
+    unreachable;
+}
+
 pub fn wrapKeyword(str: [:0]const u8) Janet {
     return Janet.fromCJanet(c.janet_wrap_keyword(str.ptr));
 }
@@ -65,6 +111,49 @@ pub fn wrapInteger(n: i32) Janet {
 pub fn symbolGen() Symbol {
     return c.janet_symbol_gen();
 }
+
+const JanetType = extern enum {
+    number,
+    nil,
+    boolean,
+    fiber,
+    string,
+    symbol,
+    keyword,
+    array,
+    tuple,
+    table,
+    @"struct",
+    buffer,
+    function,
+    cfunction,
+    abstract,
+    pointer,
+};
+
+pub const TFLAG_NIL = (1 << @enumToInt(JanetType.nil));
+pub const TFLAG_BOOLEAN = (1 << @enumToInt(JanetType.boolean));
+pub const TFLAG_FIBER = (1 << @enumToInt(JanetType.fiber));
+pub const TFLAG_NUMBER = (1 << @enumToInt(JanetType.number));
+pub const TFLAG_STRING = (1 << @enumToInt(JanetType.string));
+pub const TFLAG_SYMBOL = (1 << @enumToInt(JanetType.symbol));
+pub const TFLAG_KEYWORD = (1 << @enumToInt(JanetType.keyword));
+pub const TFLAG_ARRAY = (1 << @enumToInt(JanetType.array));
+pub const TFLAG_TUPLE = (1 << @enumToInt(JanetType.tuple));
+pub const TFLAG_TABLE = (1 << @enumToInt(JanetType.table));
+pub const TFLAG_STRUCT = (1 << @enumToInt(JanetType.@"struct"));
+pub const TFLAG_BUFFER = (1 << @enumToInt(JanetType.buffer));
+pub const TFLAG_FUNCTION = (1 << @enumToInt(JanetType.function));
+pub const TFLAG_CFUNCTION = (1 << @enumToInt(JanetType.cfunction));
+pub const TFLAG_ABSTRACT = (1 << @enumToInt(JanetType.abstract));
+pub const TFLAG_POINTER = (1 << @enumToInt(JanetType.pointer));
+
+// Some abstractions
+pub const TFLAG_BYTES = TFLAG_STRING | TFLAG_SYMBOL | TFLAG_BUFFER | TFLAG_KEYWORD;
+pub const TFLAG_INDEXED = TFLAG_ARRAY | TFLAG_TUPLE;
+pub const TFLAG_DICTIONARY = TFLAG_TABLE | TFLAG_STRUCT;
+pub const TFLAG_LENGTHABLE = TFLAG_BYTES | TFLAG_INDEXED | TFLAG_DICTIONARY;
+pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE | TFLAG_ABSTRACT;
 
 pub const Janet = blk: {
     if (std.builtin.target.cpu.arch == .x86_64) {
@@ -122,49 +211,6 @@ pub const Janet = blk: {
     }
 };
 
-const JanetType = extern enum {
-    number,
-    nil,
-    boolean,
-    fiber,
-    string,
-    symbol,
-    keyword,
-    array,
-    tuple,
-    table,
-    @"struct",
-    buffer,
-    function,
-    cfunction,
-    abstract,
-    pointer,
-};
-
-pub const TFLAG_NIL = (1 << @enumToInt(JanetType.nil));
-pub const TFLAG_BOOLEAN = (1 << @enumToInt(JanetType.boolean));
-pub const TFLAG_FIBER = (1 << @enumToInt(JanetType.fiber));
-pub const TFLAG_NUMBER = (1 << @enumToInt(JanetType.number));
-pub const TFLAG_STRING = (1 << @enumToInt(JanetType.string));
-pub const TFLAG_SYMBOL = (1 << @enumToInt(JanetType.symbol));
-pub const TFLAG_KEYWORD = (1 << @enumToInt(JanetType.keyword));
-pub const TFLAG_ARRAY = (1 << @enumToInt(JanetType.array));
-pub const TFLAG_TUPLE = (1 << @enumToInt(JanetType.tuple));
-pub const TFLAG_TABLE = (1 << @enumToInt(JanetType.table));
-pub const TFLAG_STRUCT = (1 << @enumToInt(JanetType.@"struct"));
-pub const TFLAG_BUFFER = (1 << @enumToInt(JanetType.buffer));
-pub const TFLAG_FUNCTION = (1 << @enumToInt(JanetType.function));
-pub const TFLAG_CFUNCTION = (1 << @enumToInt(JanetType.cfunction));
-pub const TFLAG_ABSTRACT = (1 << @enumToInt(JanetType.abstract));
-pub const TFLAG_POINTER = (1 << @enumToInt(JanetType.pointer));
-
-// Some abstractions
-pub const TFLAG_BYTES = TFLAG_STRING | TFLAG_SYMBOL | TFLAG_BUFFER | TFLAG_KEYWORD;
-pub const TFLAG_INDEXED = TFLAG_ARRAY | TFLAG_TUPLE;
-pub const TFLAG_DICTIONARY = TFLAG_TABLE | TFLAG_STRUCT;
-pub const TFLAG_LENGTHABLE = TFLAG_BYTES | TFLAG_INDEXED | TFLAG_DICTIONARY;
-pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE | TFLAG_ABSTRACT;
-
 // Missing type unwraps:
 // JanetFiber *janet_unwrap_fiber(Janet x);
 // void *janet_unwrap_abstract(Janet x);
@@ -218,8 +264,8 @@ const JanetMixin = struct {
         if (!janet.checktype(.tuple)) return error.NotTuple;
         const ptr = @ptrCast([*]const Janet, c.janet_unwrap_tuple(janet.toCJanet()));
         const head = c.janet_tuple_head(@ptrCast(*const c.Janet, ptr));
-        const aligned_head = @alignCast(@alignOf(*TupleHead), head);
-        const cast_head = @ptrCast(*TupleHead, aligned_head);
+        const aligned_head = @alignCast(@alignOf(*Tuple.Head), head);
+        const cast_head = @ptrCast(*Tuple.Head, aligned_head);
         const l = @intCast(usize, cast_head.length);
         return Tuple.init(ptr[0..l]);
     }
@@ -258,7 +304,29 @@ const JanetMixin = struct {
     }
 };
 
-pub const Array = struct {
+pub const KV = extern struct {
+    key: Janet,
+    value: Janet,
+
+    pub fn toCJanet(kv: *KV) [*c]c.JanetKV {
+        return @ptrCast([*c]c.JanetKV, kv);
+    }
+};
+
+pub const String = [*:0]const u8;
+pub const Symbol = [*:0]const u8;
+pub const Keyword = [*:0]const u8;
+pub const Abstract = *c_void;
+
+pub const GCObject = extern struct {
+    flags: i32,
+    blocks: extern union {
+        next: *GCObject,
+        refcount: i32,
+    },
+};
+
+pub const Array = extern struct {
     gc: GCObject,
     count: i32,
     capacity: i32,
@@ -273,7 +341,7 @@ pub const Array = struct {
     }
 };
 
-pub const Buffer = struct {
+pub const Buffer = extern struct {
     gc: GCObject,
     count: i32,
     capacity: i32,
@@ -292,15 +360,23 @@ pub const Tuple = struct {
     val: Type,
 
     pub const Type = []const Janet;
+    pub const Head = extern struct {
+        gc: GCObject,
+        length: i32,
+        hash: i32,
+        sm_line: i32,
+        sm_column: i32,
+        data: [*]const Janet,
+    };
 
     pub fn init(data: Type) Tuple {
         return Tuple{ .val = data };
     }
 
-    pub fn head(tuple: Tuple) !*TupleHead {
+    pub fn head(tuple: Tuple) !*Head {
         const head = c.janet_tuple_head(@ptrCast(*const c.Janet, tuple.val.ptr));
-        const aligned_head = @alignCast(@alignOf(*TupleHead), head);
-        return @ptrCast(*TupleHead, aligned_head);
+        const aligned_head = @alignCast(@alignOf(*Head), head);
+        return @ptrCast(*Head, aligned_head);
     }
 };
 
@@ -308,15 +384,22 @@ pub const Struct = struct {
     ptr: Type,
 
     pub const Type = [*]const KV;
+    pub const Head = extern struct {
+        gc: GCObject,
+        length: i32,
+        hash: i32,
+        capacity: i32,
+        data: [*]const KV,
+    };
 
     pub fn init(data: Type) Struct {
         return Struct{ .ptr = data };
     }
 
-    pub fn head(st: Struct) !*StructHead {
+    pub fn head(st: Struct) !*Head {
         const head = c.janet_struct_head(@ptrCast(*const c.JanetKV, st.ptr.toCJanet()));
-        const aligned_head = @alignCast(@alignOf(*StructHead), head);
-        return @ptrCast(*StructHead, aligned_head);
+        const aligned_head = @alignCast(@alignOf(*Head), head);
+        return @ptrCast(*Head, aligned_head);
     }
 
     pub fn find(st: Struct, key: Janet) ?*const KV {
@@ -336,88 +419,7 @@ pub const Struct = struct {
     }
 };
 
-pub const KV = extern struct {
-    key: Janet,
-    value: Janet,
-};
-
-pub const String = [*:0]const u8;
-pub const Symbol = [*:0]const u8;
-pub const Keyword = [*:0]const u8;
-pub const Abstract = *c_void;
-
-pub const GCObject = extern struct {
-    flags: i32,
-    blocks: extern union {
-        next: *GCObject,
-        refcount: i32,
-    },
-};
-
-pub const TupleHead = extern struct {
-    gc: GCObject,
-    length: i32,
-    hash: i32,
-    sm_line: i32,
-    sm_column: i32,
-    data: [*]const Janet,
-};
-
-pub const StructHead = extern struct {
-    gc: GCObject,
-    length: i32,
-    hash: i32,
-    capacity: i32,
-    data: [*]const KV,
-};
-
-pub fn coreEnv(replacements: ?*Table) *Table {
-    if (replacements) |r| {
-        return Table.fromCJanet(c.janet_core_env(r.toCJanet()));
-    } else {
-        return Table.fromCJanet(c.janet_core_env(null));
-    }
-}
-
-pub fn dostring(env: *Table, str: [:0]const u8, source_path: [:0]const u8, out: ?*Janet) !void {
-    return try dobytes(env, str, @intCast(i32, str.len), source_path, out);
-}
-
-pub fn dobytes(
-    env: *Table,
-    bytes: [:0]const u8,
-    length: i32,
-    source_path: [:0]const u8,
-    out: ?*Janet,
-) !void {
-    const errflags = blk: {
-        if (out) |o| {
-            break :blk c.janet_dobytes(
-                env.toCJanet(),
-                bytes.ptr,
-                length,
-                source_path.ptr,
-                @ptrCast([*c]c.Janet, o),
-            );
-        } else {
-            break :blk c.janet_dobytes(env.toCJanet(), bytes.ptr, length, source_path.ptr, null);
-        }
-    };
-    if (errflags == 0) {
-        return;
-    } else if ((errflags & 0x01) == 0x01) {
-        return error.RuntimeError;
-    } else if ((errflags & 0x02) == 0x02) {
-        return error.CompileError;
-    } else if ((errflags & 0x04) == 0x04) {
-        return error.ParseError;
-    } else {
-        return error.UnexpectedError;
-    }
-    unreachable;
-}
-
-pub const Table = struct {
+pub const Table = extern struct {
     gc: GCObject,
     count: i32,
     capacity: i32,
