@@ -167,7 +167,6 @@ pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE |
 
 // Missing type unwraps:
 // JanetFiber *janet_unwrap_fiber(Janet x);
-// JanetBuffer *janet_unwrap_buffer(Janet x);
 // void *janet_unwrap_abstract(Janet x);
 // void *janet_unwrap_pointer(Janet x);
 // JanetFunction *janet_unwrap_function(Janet x);
@@ -230,6 +229,11 @@ const JanetMixin = struct {
         return @ptrCast(*Array, c.janet_unwrap_array(janet.toCJanet()));
     }
 
+    pub fn unwrapBuffer(janet: Janet) !*Buffer {
+        if (!janet.checktype(.buffer)) return error.NotBuffer;
+        return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toCJanet()));
+    }
+
     pub fn unwrapStruct(janet: Janet) !Struct {
         if (!janet.checktype(.@"struct")) return error.NotStruct;
         const ptr = @ptrCast([*]const KV, c.janet_unwrap_struct(janet.toCJanet()));
@@ -266,6 +270,21 @@ pub const Array = struct {
 
     pub fn fromCJanet(janet_array: *c.JanetArray) *Array {
         return @ptrCast(*Array, janet_array);
+    }
+};
+
+pub const Buffer = struct {
+    gc: GCObject,
+    count: i32,
+    capacity: i32,
+    data: [*]u8,
+
+    pub fn toCJanet(buffer: *Buffer) *c.JanetBuffer {
+        return @ptrCast(*c.JanetBuffer, buffer);
+    }
+
+    pub fn fromCJanet(janet_buffer: *c.JanetBuffer) *Buffer {
+        return @ptrCast(*Buffer, janet_buffer);
     }
 };
 
@@ -485,6 +504,15 @@ test "unwrap values" {
         try testing.expectEqual(@as(i32, 58), try array.data[0].unwrapInteger());
         try testing.expectEqual(true, try array.data[1].unwrapBoolean());
         try testing.expectEqual(@as(f64, 36), try array.data[2].unwrapNumber());
+    }
+    {
+        var value: Janet = undefined;
+        try dostring(env, "@\"str\"", "main", &value);
+        const buffer = try value.unwrapBuffer();
+        try testing.expectEqual(@as(i32, 3), buffer.count);
+        try testing.expectEqual(@as(u8, 's'), buffer.data[0]);
+        try testing.expectEqual(@as(u8, 't'), buffer.data[1]);
+        try testing.expectEqual(@as(u8, 'r'), buffer.data[2]);
     }
     {
         var value: Janet = undefined;
