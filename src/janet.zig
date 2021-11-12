@@ -168,7 +168,6 @@ pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE |
 // Missing type unwraps:
 // JanetFiber *janet_unwrap_fiber(Janet x);
 // JanetArray *janet_unwrap_array(Janet x);
-// JanetTable *janet_unwrap_table(Janet x);
 // JanetBuffer *janet_unwrap_buffer(Janet x);
 // void *janet_unwrap_abstract(Janet x);
 // void *janet_unwrap_pointer(Janet x);
@@ -231,6 +230,11 @@ const JanetMixin = struct {
         if (!janet.checktype(.@"struct")) return error.NotStruct;
         const ptr = @ptrCast([*]const KV, c.janet_unwrap_struct(janet.toCJanet()));
         return Struct.init(ptr);
+    }
+
+    pub fn unwrapTable(janet: Janet) !*Table {
+        if (!janet.checktype(.table)) return error.NotTable;
+        return @ptrCast(*Table, c.janet_unwrap_table(janet.toCJanet()));
     }
 
     pub fn checktype(janet: Janet, typ: JanetType) bool {
@@ -390,7 +394,19 @@ pub const Table = struct {
     pub fn fromCJanet(janet_table: *c.JanetTable) *Table {
         return @ptrCast(*Table, janet_table);
     }
+
+    pub fn find(table: *Table, key: Janet) ?*const KV {
+        return @ptrCast(?*const KV, c.janet_table_find(table.toCJanet(), key.toCJanet()));
+    }
+
+    pub fn get(table: *Table, key: Janet) Janet {
+        return Janet.fromCJanet(c.janet_table_get(table.toCJanet(), key.toCJanet()));
+    }
 };
+
+test "refAllDecls" {
+    testing.refAllDecls(@This());
+}
 
 test "hello world" {
     try init();
@@ -447,6 +463,11 @@ test "unwrap values" {
         try dostring(env, "{:kw 2 'sym 8 98 56}", "main", &value);
         _ = try value.unwrapStruct();
     }
+    {
+        var value: Janet = undefined;
+        try dostring(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+        _ = try value.unwrapTable();
+    }
 }
 
 test "janet_type" {
@@ -485,6 +506,23 @@ test "struct" {
     const second_kv = struc.get(symbolv("sym"));
     const third_kv = struc.get(wrapInteger(98));
     const none_kv = struc.get(wrapInteger(123));
+    try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
+    try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
+    try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
+    try testing.expectEqual(JanetType.nil, none_kv.janetType());
+}
+
+test "table" {
+    try init();
+    defer deinit();
+    const env = coreEnv(null);
+    var value: Janet = undefined;
+    try dostring(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+    const table = try value.unwrapTable();
+    const first_kv = table.get(keywordv("kw"));
+    const second_kv = table.get(symbolv("sym"));
+    const third_kv = table.get(wrapInteger(98));
+    const none_kv = table.get(wrapInteger(123));
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
