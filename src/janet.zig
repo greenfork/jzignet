@@ -66,17 +66,11 @@ pub fn doBytes(
     unreachable;
 }
 
-pub fn wrapKeyword(str: [:0]const u8) Janet {
-    return Janet.fromC(c.janet_wrap_keyword(str.ptr));
-}
 pub fn keywordv(str: []const u8) Janet {
     return Janet.fromC(c.janet_keywordv(str.ptr, @intCast(i32, str.len)));
 }
 pub fn keyword(str: []const u8) Keyword {
     return Keyword.fromC(c.janet_keyword(str.ptr, @intCast(i32, str.len)));
-}
-pub fn wrapSymbol(str: [:0]const u8) Janet {
-    return Janet.fromC(c.janet_wrap_symbol(str.ptr));
 }
 pub fn symbolv(str: []const u8) Janet {
     return Janet.fromC(c.janet_symbolv(str.ptr, @intCast(i32, str.len)));
@@ -84,16 +78,12 @@ pub fn symbolv(str: []const u8) Janet {
 pub fn symbol(str: []const u8) Symbol {
     return Symbol.fromC(c.janet_symbol(str.ptr, @intCast(i32, str.len)));
 }
-pub fn wrapString(str: [:0]const u8) Janet {
-    return Janet.fromC(c.janet_wrap_string(str.ptr));
-}
 pub fn stringv(str: []const u8) Janet {
     return Janet.fromC(c.janet_stringv(str.ptr, @intCast(i32, str.len)));
 }
 pub fn string(str: []const u8) String {
     return String.fromC(c.janet_string(str.ptr, @intCast(i32, str.len)));
 }
-
 pub fn abstract(at: *const AbstractType, size: usize) *c_void {
     return c.janet_abstract(at.toC(), size) orelse unreachable;
 }
@@ -215,11 +205,59 @@ pub fn optNat(argv: [*]const Janet, argc: i32, n: i32, dflt: i32) i32 {
 pub fn wrapNil() Janet {
     return Janet.fromC(c.janet_wrap_nil());
 }
+pub fn wrapNumber(n: f64) Janet {
+    return Janet.fromC(c.janet_wrap_number(n));
+}
+pub fn wrapTrue() Janet {
+    return Janet.fromC(c.janet_wrap_true());
+}
+pub fn wrapFalse() Janet {
+    return Janet.fromC(c.janet_wrap_false());
+}
+pub fn wrapBoolean(n: c_int) Janet {
+    return Janet.fromC(c.janet_wrap_boolean(n));
+}
+pub fn wrapString(str: [:0]const u8) Janet {
+    return Janet.fromC(c.janet_wrap_string(str.ptr));
+}
+pub fn wrapSymbol(str: [:0]const u8) Janet {
+    return Janet.fromC(c.janet_wrap_symbol(str.ptr));
+}
+pub fn wrapKeyword(str: [:0]const u8) Janet {
+    return Janet.fromC(c.janet_wrap_keyword(str.ptr));
+}
+pub fn wrapArray(x: *Array) Janet {
+    return Janet.fromC(c.janet_wrap_array(x.toC()));
+}
+pub fn wrapTuple(x: Tuple) Janet {
+    return Janet.fromC(c.janet_wrap_tuple(x.toC()));
+}
+pub fn wrapStruct(x: Struct) Janet {
+    return Janet.fromC(c.janet_wrap_struct(x.toC()));
+}
+pub fn wrapFiber(x: *Fiber) Janet {
+    return Janet.fromC(c.janet_wrap_fiber(x.toC()));
+}
+pub fn wrapBuffer(x: *Buffer) Janet {
+    return Janet.fromC(c.janet_wrap_buffer(x.toC()));
+}
+pub fn wrapFunction(x: *Function) Janet {
+    return Janet.fromC(c.janet_wrap_function(x.toC()));
+}
+pub fn wrapCFunction(x: CFunction) Janet {
+    return Janet.fromC(c.janet_wrap_cfunction(@ptrCast(c.JanetCFunction, x)));
+}
+pub fn wrapTable(x: *Table) Janet {
+    return Janet.fromC(c.janet_wrap_table(x.toC()));
+}
+pub fn wrapAbstract(x: *c_void) Janet {
+    return Janet.fromC(c.janet_wrap_abstract(x));
+}
+pub fn wrapPointer(x: *c_void) Janet {
+    return Janet.fromC(c.janet_wrap_pointer(x));
+}
 pub fn wrapInteger(n: i32) Janet {
     return Janet.fromC(c.janet_wrap_integer(n));
-}
-pub fn wrapAbstract(p: *c_void) Janet {
-    return Janet.fromC(c.janet_wrap_abstract(p));
 }
 
 pub fn cfuns(env: *Table, regprefix: [:0]const u8, funs: [*]const Reg) void {
@@ -546,7 +584,7 @@ pub const Tuple = struct {
         const len = @intCast(usize, h.length);
         return Tuple{ .slice = p[0..len] };
     }
-    pub fn toC(self: Tuple) TypeImpl {
+    pub fn toC(self: Tuple) TypeC {
         return @ptrCast(TypeC, self.slice.ptr);
     }
 
