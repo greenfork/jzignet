@@ -28,11 +28,11 @@ pub fn coreEnv(replacements: ?*Table) *Table {
     }
 }
 
-pub fn dostring(env: *Table, str: [:0]const u8, source_path: [:0]const u8, out: ?*Janet) !void {
-    return try dobytes(env, str, @intCast(i32, str.len), source_path, out);
+pub fn doString(env: *Table, str: [:0]const u8, source_path: [:0]const u8, out: ?*Janet) !void {
+    return try doBytes(env, str, @intCast(i32, str.len), source_path, out);
 }
 
-pub fn dobytes(
+pub fn doBytes(
     env: *Table,
     bytes: [:0]const u8,
     length: i32,
@@ -69,47 +69,29 @@ pub fn dobytes(
 pub fn wrapKeyword(str: [:0]const u8) Janet {
     return Janet.fromC(c.janet_wrap_keyword(str.ptr));
 }
-pub fn ckeywordv(str: [:0]const u8) Janet {
-    return Janet.fromC(c.janet_ckeywordv(str.ptr));
-}
 pub fn keywordv(str: []const u8) Janet {
     return Janet.fromC(c.janet_keywordv(str.ptr, @intCast(i32, str.len)));
 }
 pub fn keyword(str: []const u8) Keyword {
-    return c.janet_keyword(str.ptr, @intCast(i32, str.len));
-}
-pub fn ckeyword(str: [:0]const u8) Keyword {
-    return c.janet_ckeyword(str.ptr);
+    return Keyword.fromC(c.janet_keyword(str.ptr, @intCast(i32, str.len)));
 }
 pub fn wrapSymbol(str: [:0]const u8) Janet {
     return Janet.fromC(c.janet_wrap_symbol(str.ptr));
-}
-pub fn csymbolv(str: [:0]const u8) Janet {
-    return Janet.fromC(c.janet_csymbolv(str.ptr));
 }
 pub fn symbolv(str: []const u8) Janet {
     return Janet.fromC(c.janet_symbolv(str.ptr, @intCast(i32, str.len)));
 }
 pub fn symbol(str: []const u8) Symbol {
-    return c.janet_symbol(str.ptr, @intCast(i32, str.len));
-}
-pub fn csymbol(str: [:0]const u8) Symbol {
-    return c.janet_csymbol(str.ptr);
+    return Symbol.fromC(c.janet_symbol(str.ptr, @intCast(i32, str.len)));
 }
 pub fn wrapString(str: [:0]const u8) Janet {
     return Janet.fromC(c.janet_wrap_string(str.ptr));
-}
-pub fn cstringv(str: [:0]const u8) Janet {
-    return Janet.fromC(c.janet_cstringv(str.ptr));
 }
 pub fn stringv(str: []const u8) Janet {
     return Janet.fromC(c.janet_stringv(str.ptr, @intCast(i32, str.len)));
 }
 pub fn string(str: []const u8) String {
-    return c.janet_string(str.ptr, @intCast(i32, str.len));
-}
-pub fn cstring(str: [:0]const u8) String {
-    return c.janet_cstring(str.ptr);
+    return String.fromC(c.janet_string(str.ptr, @intCast(i32, str.len)));
 }
 
 pub fn abstract(at: *const AbstractType, size: usize) *c_void {
@@ -117,7 +99,7 @@ pub fn abstract(at: *const AbstractType, size: usize) *c_void {
 }
 
 pub fn symbolGen() Symbol {
-    return c.janet_symbol_gen();
+    return Symbol.fromC(c.janet_symbol_gen());
 }
 
 pub fn panic(message: [:0]const u8) noreturn {
@@ -137,16 +119,88 @@ pub fn fixarity(ary: i32, fix: i32) void {
     c.janet_fixarity(ary, fix);
 }
 
+// JANET_API JanetFiber *janet_getfiber(const Janet *argv, int32_t n);
+// JANET_API JanetFunction *janet_getfunction(const Janet *argv, int32_t n);
+// JANET_API JanetCFunction janet_getcfunction(const Janet *argv, int32_t n);
+
+pub fn getMethod(method: Keyword, methods: [*]const Method, out: *Janet) c_int {
+    return c.janet_getmethod(
+        method.toC(),
+        @ptrCast([*c]const c.JanetMethod, methods),
+        @ptrCast(*c.Janet, out),
+    );
+}
+pub fn nextMethod(methods: [*]const Method, key: Janet) Janet {
+    return Janet.fromC(c.janet_nextmethod(@ptrCast([*c]const c.JanetMethod, methods), key.toC()));
+}
+pub fn getNumber(argv: [*]const Janet, n: i32) f64 {
+    return c.janet_getnumber(Janet.toCPtr(argv), n);
+}
+pub fn getArray(argv: [*]const Janet, n: i32) *Array {
+    return Array.fromC(c.janet_getarray(Janet.toCPtr(argv), n));
+}
+pub fn getTuple(argv: [*]const Janet, n: i32) Tuple {
+    return Tuple.fromC(c.janet_gettuple(Janet.toCPtr(argv), n));
+}
+pub fn getTable(argv: [*]const Janet, n: i32) *Table {
+    return Table.fromC(c.janet_gettable(Janet.toCPtr(argv), n));
+}
+pub fn getStruct(argv: [*]const Janet, n: i32) Struct {
+    return Struct.fromC(c.janet_getstruct(Janet.toCPtr(argv), n));
+}
+pub fn getString(argv: [*]const Janet, n: i32) String {
+    return String.fromC(c.janet_getstring(Janet.toCPtr(argv), n));
+}
+pub fn getSymbol(argv: [*]const Janet, n: i32) Symbol {
+    return Symbol.fromC(c.janet_getsymbol(Janet.toCPtr(argv), n));
+}
+pub fn getKeyword(argv: [*]const Janet, n: i32) Keyword {
+    return Keyword.fromC(c.janet_getkeyword(Janet.toCPtr(argv), n));
+}
+pub fn getBuffer(argv: [*]const Janet, n: i32) *Buffer {
+    return Buffer.fromC(c.janet_getbuffer(Janet.toCPtr(argv), n));
+}
+pub fn getBoolean(argv: [*]const Janet, n: i32) bool {
+    return c.janet_getboolean(Janet.toCPtr(argv), n) > 0;
+}
+pub fn getPointer(argv: [*]const Janet, n: i32) *c_void {
+    return c.janet_getpointer(Janet.toCPtr(argv), n) orelse unreachable;
+}
+
+// JANET_API JanetView janet_getindexed(const Janet *argv, int32_t n);
+// JANET_API JanetByteView janet_getbytes(const Janet *argv, int32_t n);
+// JANET_API JanetDictView janet_getdictionary(const Janet *argv, int32_t n);
+// JANET_API JanetRange janet_getslice(int32_t argc, const Janet *argv);
+
 pub fn getNat(argv: [*]const Janet, n: i32) i32 {
     return c.janet_getnat(Janet.toCPtr(argv), n);
 }
+pub fn getInteger(argv: [*]const Janet, n: i32) i32 {
+    return c.janet_getinteger(Janet.toCPtr(argv), n);
+}
+pub fn getInteger64(argv: [*]const Janet, n: i32) i64 {
+    return c.janet_getinteger64(Janet.toCPtr(argv), n);
+}
+pub fn getSize(argv: [*]const Janet, n: i32) usize {
+    return c.janet_getsize(Janet.toCPtr(argv), n);
+}
 pub fn getAbstract(argv: [*]const Janet, n: i32, at: *const AbstractType) *c_void {
-    // Function implementation does not ever return NULL.
     return c.janet_getabstract(Janet.toCPtr(argv), n, at.toC()) orelse unreachable;
 }
+pub fn getHalfRange(argv: [*]const Janet, n: i32, length: i32, which: [:0]const u8) i32 {
+    return c.janet_gethalfrange(Janet.toCPtr(argv), n, length, which.ptr);
+}
+pub fn getArgIndex(argv: [*]const Janet, n: i32, length: i32, which: [:0]const u8) i32 {
+    return c.janet_getargindex(Janet.toCPtr(argv), n, length, which.ptr);
+}
+pub fn getFlags(argv: [*]const Janet, n: i32, flags: [:0]const u8) u64 {
+    return c.janet_getflags(Janet.toCPtr(argv), n, flags.ptr);
+}
+
 pub fn optNat(argv: [*]const Janet, argc: i32, n: i32, dflt: i32) i32 {
     return c.janet_optnat(Janet.toCPtr(argv), argc, n, dflt);
 }
+
 pub fn wrapNil() Janet {
     return Janet.fromC(c.janet_wrap_nil());
 }
@@ -269,7 +323,6 @@ pub const Janet = blk: {
     }
 };
 
-// Missing type unwraps:
 // JanetFiber *janet_unwrap_fiber(Janet x);
 // JanetFunction *janet_unwrap_function(Janet x);
 // JanetCFunction janet_unwrap_cfunction(Janet x);
@@ -286,85 +339,80 @@ const JanetMixin = struct {
     }
 
     pub fn unwrapInteger(janet: Janet) !i32 {
-        if (!janet.checktype(.number)) return error.NotNumber;
+        if (!janet.checkType(.number)) return error.NotNumber;
         return c.janet_unwrap_integer(janet.toC());
     }
 
     pub fn unwrapNumber(janet: Janet) !f64 {
-        if (!janet.checktype(.number)) return error.NotNumber;
+        if (!janet.checkType(.number)) return error.NotNumber;
         return c.janet_unwrap_number(janet.toC());
     }
 
     pub fn unwrapBoolean(janet: Janet) !bool {
-        if (!janet.checktype(.boolean)) return error.NotBoolean;
+        if (!janet.checkType(.boolean)) return error.NotBoolean;
         return c.janet_unwrap_boolean(janet.toC()) > 0;
     }
 
-    pub fn unwrapString(janet: Janet) ![]const u8 {
-        if (!janet.checktype(.string)) return error.NotString;
-        const rs = c.janet_unwrap_string(janet.toC());
-        return std.mem.span(@ptrCast([*:0]const u8, rs));
+    pub fn unwrapString(janet: Janet) !String {
+        if (!janet.checkType(.string)) return error.NotString;
+        return String.fromC(c.janet_unwrap_string(janet.toC()));
     }
 
-    pub fn unwrapKeyword(janet: Janet) ![]const u8 {
-        if (!janet.checktype(.keyword)) return error.NotKeyword;
-        const rs = c.janet_unwrap_keyword(janet.toC());
-        return std.mem.span(@ptrCast([*:0]const u8, rs));
+    pub fn unwrapKeyword(janet: Janet) !Keyword {
+        if (!janet.checkType(.keyword)) return error.NotKeyword;
+        return Keyword.fromC(c.janet_unwrap_keyword(janet.toC()));
     }
 
-    pub fn unwrapSymbol(janet: Janet) ![]const u8 {
-        if (!janet.checktype(.symbol)) return error.NotSymbol;
-        const rs = c.janet_unwrap_symbol(janet.toC());
-        return std.mem.span(@ptrCast([*:0]const u8, rs));
+    pub fn unwrapSymbol(janet: Janet) !Symbol {
+        if (!janet.checkType(.symbol)) return error.NotSymbol;
+        return Symbol.fromC(c.janet_unwrap_symbol(janet.toC()));
     }
 
     pub fn unwrapTuple(janet: Janet) !Tuple {
-        if (!janet.checktype(.tuple)) return error.NotTuple;
-        const ptr = @ptrCast([*]const Janet, c.janet_unwrap_tuple(janet.toC()));
-        const head = c.janet_tuple_head(@ptrCast(*const c.Janet, ptr));
-        const aligned_head = @alignCast(@alignOf(*Tuple.Head), head);
-        const cast_head = @ptrCast(*Tuple.Head, aligned_head);
-        const l = @intCast(usize, cast_head.length);
-        return Tuple.init(ptr[0..l]);
+        if (!janet.checkType(.tuple)) return error.NotTuple;
+        return Tuple.fromC(c.janet_unwrap_tuple(janet.toC()));
     }
 
     pub fn unwrapArray(janet: Janet) !*Array {
-        if (!janet.checktype(.array)) return error.NotArray;
+        if (!janet.checkType(.array)) return error.NotArray;
         return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
     }
 
     pub fn unwrapBuffer(janet: Janet) !*Buffer {
-        if (!janet.checktype(.buffer)) return error.NotBuffer;
+        if (!janet.checkType(.buffer)) return error.NotBuffer;
         return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
     }
 
     pub fn unwrapStruct(janet: Janet) !Struct {
-        if (!janet.checktype(.@"struct")) return error.NotStruct;
-        const ptr = @ptrCast([*]const KV, c.janet_unwrap_struct(janet.toC()));
-        return Struct.init(ptr);
+        if (!janet.checkType(.@"struct")) return error.NotStruct;
+        return Struct.fromC(c.janet_unwrap_struct(janet.toC()));
     }
 
     pub fn unwrapTable(janet: Janet) !*Table {
-        if (!janet.checktype(.table)) return error.NotTable;
+        if (!janet.checkType(.table)) return error.NotTable;
         return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
     }
 
     pub fn unwrapPointer(janet: Janet) *c_void {
-        if (!janet.checktype(.pointer)) return error.NotPointer;
+        if (!janet.checkType(.pointer)) return error.NotPointer;
         return c.janet_unwrap_pointer(janet.toC());
     }
 
     pub fn unwrapAbstract(janet: Janet) *c_void {
-        if (!janet.checktype(.abstract)) return error.NotAbstract;
+        if (!janet.checkType(.abstract)) return error.NotAbstract;
         return c.janet_unwrap_abstract(janet.toC());
     }
 
-    pub fn checktype(janet: Janet, typ: JanetType) bool {
+    pub fn checkType(janet: Janet, typ: JanetType) bool {
         return c.janet_checktype(janet.toC(), @ptrCast(*const c.JanetType, &typ).*) > 0;
     }
 
-    pub fn checktypes(janet: Janet, typeflags: i32) bool {
+    pub fn checkTypes(janet: Janet, typeflags: i32) bool {
         return c.janet_checktypes(janet.toC(), typeflags) > 0;
+    }
+
+    pub fn truthy(janet: Janet) bool {
+        return c.janet_truthy(janet.toC()) > 0;
     }
 
     pub fn janetType(janet: Janet) JanetType {
@@ -376,21 +424,63 @@ pub const KV = extern struct {
     key: Janet,
     value: Janet,
 
-    pub fn toC(kv: *KV) [*c]c.JanetKV {
-        return @ptrCast([*c]c.JanetKV, kv);
+    pub fn toC(self: *KV) [*c]c.JanetKV {
+        return @ptrCast([*c]c.JanetKV, self);
     }
 };
 
-pub const String = [*:0]const u8;
-pub const Symbol = [*:0]const u8;
-pub const Keyword = [*:0]const u8;
-pub const Abstract = *c_void;
+pub const String = struct {
+    slice: TypeImpl,
 
-pub const StringHead = extern struct {
-    gc: GCObject,
-    length: i32,
-    hash: i32,
-    data: [*]const u8,
+    pub const TypeImpl = [:0]const u8;
+    pub const TypeC = [*:0]const u8;
+    pub const Head = extern struct {
+        gc: GCObject,
+        length: i32,
+        hash: i32,
+        data: [*]const u8,
+    };
+
+    pub fn toC(self: String) TypeC {
+        return self.slice.ptr;
+    }
+    pub fn fromC(ptr: TypeC) String {
+        return String{ .slice = std.mem.span(ptr) };
+    }
+
+    pub fn head(self: Tuple) !*Head {
+        const h = c.janet_string_head(self.slice.ptr);
+        const aligned_head = @alignCast(@alignOf(*Head), h);
+        return @ptrCast(*Head, aligned_head);
+    }
+};
+
+pub const Symbol = struct {
+    slice: TypeImpl,
+
+    pub const TypeImpl = [:0]const u8;
+    pub const TypeC = [*:0]const u8;
+
+    pub fn toC(self: Symbol) TypeC {
+        return self.slice.ptr;
+    }
+    pub fn fromC(ptr: TypeC) Symbol {
+        return Symbol{ .slice = std.mem.span(ptr) };
+    }
+};
+
+pub const Keyword = struct {
+    slice: TypeImpl,
+
+    pub const TypeImpl = [:0]const u8;
+    pub const TypeC = [*:0]const u8;
+
+    pub fn toC(self: Keyword) TypeC {
+        return self.slice.ptr;
+    }
+    pub fn fromC(ptr: TypeC) Keyword {
+        return Keyword{ .slice = std.mem.span(ptr) };
+    }
 };
 
 pub const GCObject = extern struct {
@@ -407,12 +497,12 @@ pub const Array = extern struct {
     capacity: i32,
     data: [*]Janet,
 
-    pub fn toC(array: *Array) *c.JanetArray {
-        return @ptrCast(*c.JanetArray, array);
+    pub fn toC(self: *Array) *c.JanetArray {
+        return @ptrCast(*c.JanetArray, self);
     }
 
-    pub fn fromC(janet_array: *c.JanetArray) *Array {
-        return @ptrCast(*Array, janet_array);
+    pub fn fromC(ptr: *c.JanetArray) *Array {
+        return @ptrCast(*Array, ptr);
     }
 };
 
@@ -422,19 +512,20 @@ pub const Buffer = extern struct {
     capacity: i32,
     data: [*]u8,
 
-    pub fn toC(buffer: *Buffer) *c.JanetBuffer {
-        return @ptrCast(*c.JanetBuffer, buffer);
+    pub fn toC(self: *Buffer) *c.JanetBuffer {
+        return @ptrCast(*c.JanetBuffer, self);
     }
 
-    pub fn fromC(janet_buffer: *c.JanetBuffer) *Buffer {
-        return @ptrCast(*Buffer, janet_buffer);
+    pub fn fromC(ptr: *c.JanetBuffer) *Buffer {
+        return @ptrCast(*Buffer, ptr);
     }
 };
 
 pub const Tuple = struct {
-    val: Type,
+    slice: TypeImpl,
 
-    pub const Type = []const Janet;
+    pub const TypeImpl = []const Janet;
+    pub const TypeC = [*c]const c.Janet;
     pub const Head = extern struct {
         gc: GCObject,
         length: i32,
@@ -444,21 +535,29 @@ pub const Tuple = struct {
         data: [*]const Janet,
     };
 
-    pub fn init(data: Type) Tuple {
-        return Tuple{ .val = data };
+    pub fn fromC(ptr: TypeC) Tuple {
+        const p = @ptrCast([*]const Janet, ptr);
+        const janet_head = c.janet_tuple_head(ptr);
+        const h = @ptrCast(*Head, @alignCast(@alignOf(*Head), janet_head));
+        const len = @intCast(usize, h.length);
+        return Tuple{ .slice = p[0..len] };
+    }
+    pub fn toC(self: Tuple) TypeImpl {
+        return @ptrCast(TypeC, self.slice.ptr);
     }
 
-    pub fn head(tuple: Tuple) !*Head {
-        const head = c.janet_tuple_head(@ptrCast(*const c.Janet, tuple.val.ptr));
-        const aligned_head = @alignCast(@alignOf(*Head), head);
+    pub fn head(self: Tuple) !*Head {
+        const h = c.janet_tuple_head(@ptrCast(*const c.Janet, self.slice.ptr));
+        const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
     }
 };
 
 pub const Struct = struct {
-    ptr: Type,
+    ptr: TypeImpl,
 
-    pub const Type = [*]const KV;
+    pub const TypeImpl = [*]const KV;
+    pub const TypeC = [*c]const c.JanetKV;
     pub const Head = extern struct {
         gc: GCObject,
         length: i32,
@@ -467,30 +566,25 @@ pub const Struct = struct {
         data: [*]const KV,
     };
 
-    pub fn init(data: Type) Struct {
-        return Struct{ .ptr = data };
+    pub fn toC(self: Struct) TypeC {
+        return @ptrCast([*]const c.JanetKV, self.ptr);
+    }
+    pub fn fromC(ptr: TypeC) Struct {
+        return Struct{ .ptr = @ptrCast(TypeImpl, ptr) };
     }
 
-    pub fn head(st: Struct) !*Head {
-        const head = c.janet_struct_head(@ptrCast(*const c.JanetKV, st.ptr.toC()));
-        const aligned_head = @alignCast(@alignOf(*Head), head);
+    pub fn head(self: Struct) !*Head {
+        const h = c.janet_struct_head(@ptrCast(*const c.JanetKV, self.toC()));
+        const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
     }
 
-    pub fn find(st: Struct, key: Janet) ?*const KV {
-        return @ptrCast(?*const KV, c.janet_struct_find(st.toC(), key.toC()));
+    pub fn find(self: Struct, key: Janet) ?*const KV {
+        return @ptrCast(?*const KV, c.janet_struct_find(self.toC(), key.toC()));
     }
 
-    pub fn get(st: Struct, key: Janet) Janet {
-        return Janet.fromC(c.janet_struct_get(st.toC(), key.toC()));
-    }
-
-    pub fn toC(st: Struct) [*c]const c.JanetKV {
-        return @ptrCast([*]const c.JanetKV, st.ptr);
-    }
-
-    pub fn fromC(janet_st: *c.JanetStruct) *Table {
-        return Struct.init(@ptrCast(Type, janet_st));
+    pub fn get(self: Struct, key: Janet) Janet {
+        return Janet.fromC(c.janet_struct_get(self.toC(), key.toC()));
     }
 };
 
@@ -510,12 +604,12 @@ pub const Table = extern struct {
         return @ptrCast(*Table, janet_table);
     }
 
-    pub fn find(table: *Table, key: Janet) ?*const KV {
-        return @ptrCast(?*const KV, c.janet_table_find(table.toC(), key.toC()));
+    pub fn find(self: *Table, key: Janet) ?*const KV {
+        return @ptrCast(?*const KV, c.janet_self_find(self.toC(), key.toC()));
     }
 
-    pub fn get(table: *Table, key: Janet) Janet {
-        return Janet.fromC(c.janet_table_get(table.toC(), key.toC()));
+    pub fn get(self: *Table, key: Janet) Janet {
+        return Janet.fromC(c.janet_table_get(self.toC(), key.toC()));
     }
 };
 
@@ -615,7 +709,7 @@ test "hello world" {
     try init();
     defer deinit();
     const env = coreEnv(null);
-    try dostring(env, "(prin `hello, world!`)", "main", null);
+    try doString(env, "(prin `hello, world!`)", "main", null);
 }
 
 test "unwrap values" {
@@ -624,46 +718,47 @@ test "unwrap values" {
     const env = coreEnv(null);
     {
         var value: Janet = undefined;
-        try dostring(env, "1", "main", &value);
+        try doString(env, "1", "main", &value);
         try testing.expectEqual(@as(i32, 1), try value.unwrapInteger());
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "1", "main", &value);
+        try doString(env, "1", "main", &value);
         try testing.expectEqual(@as(f64, 1), try value.unwrapNumber());
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "true", "main", &value);
+        try doString(env, "true", "main", &value);
         try testing.expectEqual(true, try value.unwrapBoolean());
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "\"str\"", "main", &value);
-        try testing.expectEqualStrings("str", try value.unwrapString());
+        try doString(env, "\"str\"", "main", &value);
+        try testing.expectEqualStrings("str", (try value.unwrapString()).slice);
     }
     {
         var value: Janet = undefined;
-        try dostring(env, ":str", "main", &value);
-        try testing.expectEqualStrings("str", try value.unwrapKeyword());
+        try doString(env, ":str", "main", &value);
+        try testing.expectEqualStrings("str", (try value.unwrapKeyword()).slice);
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "'str", "main", &value);
-        try testing.expectEqualStrings("str", try value.unwrapSymbol());
+        try doString(env, "'str", "main", &value);
+        try testing.expectEqualStrings("str", (try value.unwrapSymbol()).slice);
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "[58 true 36.0]", "main", &value);
+        try doString(env, "[58 true 36.0]", "main", &value);
         const tuple = try value.unwrapTuple();
-        try testing.expectEqual(@as(usize, 3), tuple.val.len);
-        try testing.expectEqual(@as(i32, 58), try tuple.val[0].unwrapInteger());
-        try testing.expectEqual(true, try tuple.val[1].unwrapBoolean());
-        try testing.expectEqual(@as(f64, 36), try tuple.val[2].unwrapNumber());
+        try testing.expectEqual(@as(i32, 3), (try tuple.head()).length);
+        try testing.expectEqual(@as(usize, 3), tuple.slice.len);
+        try testing.expectEqual(@as(i32, 58), try tuple.slice[0].unwrapInteger());
+        try testing.expectEqual(true, try tuple.slice[1].unwrapBoolean());
+        try testing.expectEqual(@as(f64, 36), try tuple.slice[2].unwrapNumber());
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "@[58 true 36.0]", "main", &value);
+        try doString(env, "@[58 true 36.0]", "main", &value);
         const array = try value.unwrapArray();
         try testing.expectEqual(@as(i32, 3), array.count);
         try testing.expectEqual(@as(i32, 58), try array.data[0].unwrapInteger());
@@ -672,7 +767,7 @@ test "unwrap values" {
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "@\"str\"", "main", &value);
+        try doString(env, "@\"str\"", "main", &value);
         const buffer = try value.unwrapBuffer();
         try testing.expectEqual(@as(i32, 3), buffer.count);
         try testing.expectEqual(@as(u8, 's'), buffer.data[0]);
@@ -681,12 +776,12 @@ test "unwrap values" {
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "{:kw 2 'sym 8 98 56}", "main", &value);
+        try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
         _ = try value.unwrapStruct();
     }
     {
         var value: Janet = undefined;
-        try dostring(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+        try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
         _ = try value.unwrapTable();
     }
 }
@@ -696,7 +791,7 @@ test "janet_type" {
     defer deinit();
     const env = coreEnv(null);
     var value: Janet = undefined;
-    try dostring(env, "1", "main", &value);
+    try doString(env, "1", "main", &value);
     try testing.expectEqual(JanetType.number, value.janetType());
 }
 
@@ -706,13 +801,13 @@ test "janet_checktypes" {
     const env = coreEnv(null);
     {
         var value: Janet = undefined;
-        try dostring(env, "1", "main", &value);
-        try testing.expectEqual(true, value.checktypes(TFLAG_NUMBER));
+        try doString(env, "1", "main", &value);
+        try testing.expectEqual(true, value.checkTypes(TFLAG_NUMBER));
     }
     {
         var value: Janet = undefined;
-        try dostring(env, ":str", "main", &value);
-        try testing.expectEqual(true, value.checktypes(TFLAG_BYTES));
+        try doString(env, ":str", "main", &value);
+        try testing.expectEqual(true, value.checkTypes(TFLAG_BYTES));
     }
 }
 
@@ -721,12 +816,13 @@ test "struct" {
     defer deinit();
     const env = coreEnv(null);
     var value: Janet = undefined;
-    try dostring(env, "{:kw 2 'sym 8 98 56}", "main", &value);
-    const struc = try value.unwrapStruct();
-    const first_kv = struc.get(keywordv("kw"));
-    const second_kv = struc.get(symbolv("sym"));
-    const third_kv = struc.get(wrapInteger(98));
-    const none_kv = struc.get(wrapInteger(123));
+    try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
+    const st = try value.unwrapStruct();
+    const first_kv = st.get(keywordv("kw"));
+    const second_kv = st.get(symbolv("sym"));
+    const third_kv = st.get(wrapInteger(98));
+    const none_kv = st.get(wrapInteger(123));
+    try testing.expectEqual(@as(i32, 3), (try st.head()).length);
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
@@ -738,12 +834,13 @@ test "table" {
     defer deinit();
     const env = coreEnv(null);
     var value: Janet = undefined;
-    try dostring(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+    try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
     const table = try value.unwrapTable();
     const first_kv = table.get(keywordv("kw"));
     const second_kv = table.get(symbolv("sym"));
     const third_kv = table.get(wrapInteger(98));
     const none_kv = table.get(wrapInteger(123));
+    try testing.expectEqual(@as(i32, 3), table.count);
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
@@ -818,14 +915,14 @@ test "abstract" {
     defer deinit();
     var env = coreEnv(null);
     cfunsPrefix(env, "zig", &zig_struct_cfuns);
-    try dostring(env, "(def st (zig/struct-init))", "main", null);
+    try doString(env, "(def st (zig/struct-init))", "main", null);
     // Default value is 1 if not supplied with the initializer.
-    try dostring(env, "(assert (= (zig/get-counter st) 1))", "main", null);
-    try dostring(env, "(zig/dec st)", "main", null);
-    try dostring(env, "(assert (= (zig/get-counter st) 0))", "main", null);
+    try doString(env, "(assert (= (zig/get-counter st) 1))", "main", null);
+    try doString(env, "(zig/dec st)", "main", null);
+    try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
     // Expected fail of dec function.
-    try testing.expectError(error.RuntimeError, dostring(env, "(zig/dec st)", "main", null));
-    try dostring(env, "(assert (= (zig/get-counter st) 0))", "main", null);
-    try dostring(env, "(zig/inc st 5)", "main", null);
-    try dostring(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+    try testing.expectError(error.RuntimeError, doString(env, "(zig/dec st)", "main", null));
+    try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
+    try doString(env, "(zig/inc st 5)", "main", null);
+    try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
 }
