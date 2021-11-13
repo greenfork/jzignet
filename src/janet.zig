@@ -171,12 +171,6 @@ pub fn getFiber(argv: [*]const Janet, n: i32) *Fiber {
 pub fn getFunction(argv: [*]const Janet, n: i32) *Function {
     return Function.fromC(c.janet_getfunction(Janet.toCPtr(argv), n) orelse unreachable);
 }
-
-// JANET_API JanetView janet_getindexed(const Janet *argv, int32_t n);
-// JANET_API JanetByteView janet_getbytes(const Janet *argv, int32_t n);
-// JANET_API JanetDictView janet_getdictionary(const Janet *argv, int32_t n);
-// JANET_API JanetRange janet_getslice(int32_t argc, const Janet *argv);
-
 pub fn getNat(argv: [*]const Janet, n: i32) i32 {
     return c.janet_getnat(Janet.toCPtr(argv), n);
 }
@@ -200,6 +194,18 @@ pub fn getArgIndex(argv: [*]const Janet, n: i32, length: i32, which: [:0]const u
 }
 pub fn getFlags(argv: [*]const Janet, n: i32, flags: [:0]const u8) u64 {
     return c.janet_getflags(Janet.toCPtr(argv), n, flags.ptr);
+}
+pub fn getIndexed(argv: [*]const Janet, n: i32) View {
+    return @ptrCast(*View, &c.janet_getindexed(Janet.toCPtr(argv), n)).*;
+}
+pub fn getBytes(argv: [*]const Janet, n: i32) ByteView {
+    return @ptrCast(*ByteView, &c.janet_getbytes(Janet.toCPtr(argv), n)).*;
+}
+pub fn getDictionary(argv: [*]const Janet, n: i32) DictView {
+    return @ptrCast(*DictView, &c.janet_getdictionary(Janet.toCPtr(argv), n)).*;
+}
+pub fn getSlice(argc: i32, argv: [*]const Janet) Range {
+    return @ptrCast(*Range, &c.janet_getslice(argc, Janet.toCPtr(argv))).*;
 }
 
 pub fn optNat(argv: [*]const Janet, argc: i32, n: i32, dflt: i32) i32 {
@@ -327,9 +333,6 @@ pub const Janet = blk: {
         };
     }
 };
-
-// JanetFiber *janet_unwrap_fiber(Janet x);
-// JanetFunction *janet_unwrap_function(Janet x);
 
 const JanetMixin = struct {
     pub fn fromC(janet: c.Janet) Janet {
