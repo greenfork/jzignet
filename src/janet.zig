@@ -119,10 +119,6 @@ pub fn fixarity(ary: i32, fix: i32) void {
     c.janet_fixarity(ary, fix);
 }
 
-// JANET_API JanetFiber *janet_getfiber(const Janet *argv, int32_t n);
-// JANET_API JanetFunction *janet_getfunction(const Janet *argv, int32_t n);
-// JANET_API JanetCFunction janet_getcfunction(const Janet *argv, int32_t n);
-
 pub fn getMethod(method: Keyword, methods: [*]const Method, out: *Janet) c_int {
     return c.janet_getmethod(
         method.toC(),
@@ -165,6 +161,15 @@ pub fn getBoolean(argv: [*]const Janet, n: i32) bool {
 }
 pub fn getPointer(argv: [*]const Janet, n: i32) *c_void {
     return c.janet_getpointer(Janet.toCPtr(argv), n) orelse unreachable;
+}
+pub fn getCFunction(argv: [*]const Janet, n: i32) CFunction {
+    return @ptrCast(CFunction, c.janet_getcfunction(Janet.toCPtr(argv), n));
+}
+pub fn getFiber(argv: [*]const Janet, n: i32) *Fiber {
+    return Fiber.fromC(c.janet_getfiber(Janet.toCPtr(argv), n) orelse unreachable);
+}
+pub fn getFunction(argv: [*]const Janet, n: i32) *Function {
+    return Function.fromC(c.janet_getfunction(Janet.toCPtr(argv), n) orelse unreachable);
 }
 
 // JANET_API JanetView janet_getindexed(const Janet *argv, int32_t n);
@@ -325,7 +330,6 @@ pub const Janet = blk: {
 
 // JanetFiber *janet_unwrap_fiber(Janet x);
 // JanetFunction *janet_unwrap_function(Janet x);
-// JanetCFunction janet_unwrap_cfunction(Janet x);
 
 const JanetMixin = struct {
     pub fn fromC(janet: c.Janet) Janet {
@@ -342,79 +346,76 @@ const JanetMixin = struct {
         if (!janet.checkType(.number)) return error.NotNumber;
         return c.janet_unwrap_integer(janet.toC());
     }
-
     pub fn unwrapNumber(janet: Janet) !f64 {
         if (!janet.checkType(.number)) return error.NotNumber;
         return c.janet_unwrap_number(janet.toC());
     }
-
     pub fn unwrapBoolean(janet: Janet) !bool {
         if (!janet.checkType(.boolean)) return error.NotBoolean;
         return c.janet_unwrap_boolean(janet.toC()) > 0;
     }
-
     pub fn unwrapString(janet: Janet) !String {
         if (!janet.checkType(.string)) return error.NotString;
         return String.fromC(c.janet_unwrap_string(janet.toC()));
     }
-
     pub fn unwrapKeyword(janet: Janet) !Keyword {
         if (!janet.checkType(.keyword)) return error.NotKeyword;
         return Keyword.fromC(c.janet_unwrap_keyword(janet.toC()));
     }
-
     pub fn unwrapSymbol(janet: Janet) !Symbol {
         if (!janet.checkType(.symbol)) return error.NotSymbol;
         return Symbol.fromC(c.janet_unwrap_symbol(janet.toC()));
     }
-
     pub fn unwrapTuple(janet: Janet) !Tuple {
         if (!janet.checkType(.tuple)) return error.NotTuple;
         return Tuple.fromC(c.janet_unwrap_tuple(janet.toC()));
     }
-
     pub fn unwrapArray(janet: Janet) !*Array {
         if (!janet.checkType(.array)) return error.NotArray;
         return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
     }
-
     pub fn unwrapBuffer(janet: Janet) !*Buffer {
         if (!janet.checkType(.buffer)) return error.NotBuffer;
         return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
     }
-
     pub fn unwrapStruct(janet: Janet) !Struct {
         if (!janet.checkType(.@"struct")) return error.NotStruct;
         return Struct.fromC(c.janet_unwrap_struct(janet.toC()));
     }
-
     pub fn unwrapTable(janet: Janet) !*Table {
         if (!janet.checkType(.table)) return error.NotTable;
         return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
     }
-
-    pub fn unwrapPointer(janet: Janet) *c_void {
+    pub fn unwrapPointer(janet: Janet) !*c_void {
         if (!janet.checkType(.pointer)) return error.NotPointer;
-        return c.janet_unwrap_pointer(janet.toC());
+        return c.janet_unwrap_pointer(janet.toC()) orelse unreachable;
     }
-
-    pub fn unwrapAbstract(janet: Janet) *c_void {
+    pub fn unwrapCFunction(janet: Janet) !CFunction {
+        if (!janet.checkType(.cfunction)) return error.NotCFunction;
+        return @ptrCast(CFunction, c.janet_unwrap_cfunction(janet.toC()));
+    }
+    pub fn unwrapFunction(janet: Janet) !*Function {
+        if (!janet.checkType(.function)) return error.NotFunction;
+        return Function.fromC(c.janet_unwrap_function(janet.toC()) orelse unreachable);
+    }
+    pub fn unwrapAbstract(janet: Janet) !*c_void {
         if (!janet.checkType(.abstract)) return error.NotAbstract;
-        return c.janet_unwrap_abstract(janet.toC());
+        return c.janet_unwrap_abstract(janet.toC()) orelse unreachable;
+    }
+    pub fn unwrapFiber(janet: Janet) !*Fiber {
+        if (!janet.checkType(.fiber)) return error.NotFiber;
+        return Fiber.fromC(c.janet_unwrap_fiber(janet.toC()) orelse unreachable);
     }
 
     pub fn checkType(janet: Janet, typ: JanetType) bool {
         return c.janet_checktype(janet.toC(), @ptrCast(*const c.JanetType, &typ).*) > 0;
     }
-
     pub fn checkTypes(janet: Janet, typeflags: i32) bool {
         return c.janet_checktypes(janet.toC(), typeflags) > 0;
     }
-
     pub fn truthy(janet: Janet) bool {
         return c.janet_truthy(janet.toC()) > 0;
     }
-
     pub fn janetType(janet: Janet) JanetType {
         return @ptrCast(*JanetType, &c.janet_type(janet.toC())).*;
     }
@@ -613,6 +614,152 @@ pub const Table = extern struct {
     }
 };
 
+pub const Function = extern struct {
+    gc: GCObject,
+    def: *Def,
+    envs: [*]*Env,
+
+    pub const Def = extern struct {
+        gc: GCObject,
+        environments: [*]i32,
+        constants: [*]Janet,
+        defs: [*]*Def,
+        bytecode: [*]u32,
+        closure_bitset: [*]u32,
+
+        sourcemap: *SourceMapping,
+        source: String.TypeC,
+        name: String.TypeC,
+
+        flags: i32,
+        slotcount: i32,
+        arity: i32,
+        min_arity: i32,
+        max_arity: i32,
+        constants_length: i32,
+        bytecode_length: i32,
+        environments_length: i32,
+        defs_length: i32,
+    };
+    pub const Env = extern struct {
+        gc: GCObject,
+        as: extern union {
+            fiber: *Fiber,
+            values: [*]Janet,
+        },
+        length: i32,
+        offset: i32,
+    };
+
+    pub fn toC(self: *Function) *c.JanetFunction {
+        return @ptrCast(*c.JanetFunction, self);
+    }
+    pub fn fromC(ptr: *c.JanetFunction) *Function {
+        return @ptrCast(*Function, @alignCast(@alignOf(*Function), ptr));
+    }
+};
+
+pub const Fiber = extern struct {
+    gc: GCObject,
+    flags: i32,
+    frame: i32,
+    stackstart: i32,
+    stackstop: i32,
+    capacity: i32,
+    maxstack: i32,
+    env: *Table,
+    data: [*]Janet,
+    child: *Fiber,
+    last_value: Janet,
+    // #ifdef JANET_EV
+    waiting: *ListenerState,
+    sched_id: i32,
+    supervisor_channel: *c_void,
+
+    pub fn toC(self: *Fiber) *c.JanetFiber {
+        return @ptrCast(*c.JanetFiber, self);
+    }
+    pub fn fromC(ptr: *c.JanetFiber) *Fiber {
+        return @ptrCast(*Fiber, ptr);
+    }
+};
+
+pub const ListenerState = blk: {
+    if (std.builtin.target.os.tag == .windows) {
+        break :blk extern struct {
+            machine: Listener,
+            fiber: *Fiber,
+            stream: *Stream,
+            event: *c_void,
+            tag: *c_void,
+            bytes: c_int,
+        };
+    } else {
+        break :blk extern struct {
+            machine: Listener,
+            fiber: *Fiber,
+            stream: *Stream,
+            event: *c_void,
+            _index: usize,
+            _mask: c_int,
+            _next: *ListenerState,
+        };
+    }
+};
+
+pub const Handle = blk: {
+    if (std.builtin.target.os.tag == .windows) {
+        break :blk *c_void;
+    } else {
+        break :blk c_int;
+    }
+};
+
+pub const HANDLE_NONE = blk: {
+    if (std.builtin.target.os.tag == .windows) {
+        break :blk null;
+    } else {
+        break :blk -1;
+    }
+};
+
+pub const Stream = extern struct {
+    handle: Handle,
+    flags: u32,
+    state: *ListenerState,
+    methods: *const c_void,
+    _mask: c_int,
+};
+
+// FIXME: changing *c.JanetListenerState to *ListenerState produces Zig error:
+// "dependency loop detected". But this should be possible since these are top-level
+// declarations. Fix it when Zig compiler can handle this.
+pub const Listener = fn (state: *c.JanetListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
+
+pub const AsyncStatus = extern enum {
+    not_done,
+    done,
+};
+
+pub const AsyncEvent = extern enum {
+    init,
+    mark,
+    deinit,
+    close,
+    err,
+    hup,
+    read,
+    write,
+    cancel,
+    complete,
+    user,
+};
+
+pub const SourceMapping = extern struct {
+    line: i32,
+    column: i32,
+};
+
 pub const MarshalContext = extern struct {
     m_state: *c_void,
     u_state: *c_void,
@@ -783,6 +930,26 @@ test "unwrap values" {
         var value: Janet = undefined;
         try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
         _ = try value.unwrapTable();
+    }
+    {
+        var value: Janet = undefined;
+        try doString(env, "marshal", "main", &value);
+        _ = try value.unwrapCFunction();
+    }
+    {
+        var value: Janet = undefined;
+        try doString(env, "+", "main", &value);
+        _ = try value.unwrapFunction();
+    }
+    {
+        var value: Janet = undefined;
+        try doString(env, "(file/temp)", "main", &value);
+        _ = try value.unwrapAbstract();
+    }
+    {
+        var value: Janet = undefined;
+        try doString(env, "(fiber/current)", "main", &value);
+        _ = try value.unwrapFiber();
     }
 }
 
