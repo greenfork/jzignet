@@ -92,8 +92,13 @@ pub fn stringv(str: []const u8) Janet {
 pub fn string(str: []const u8) String {
     return String.fromC(c.janet_string(str.ptr, @intCast(i32, str.len)));
 }
-pub fn abstract(at: *const AbstractType, size: usize) *c_void {
-    return c.janet_abstract(at.toC(), size) orelse unreachable;
+pub fn abstract(
+    comptime value_type: type,
+    at: *const Abstract(value_type).Type,
+) Abstract(value_type) {
+    return Abstract(value_type).fromC(
+        c.janet_abstract(at.toC(), @sizeOf(value_type)) orelse unreachable,
+    );
 }
 
 pub fn symbolGen() Symbol {
@@ -182,8 +187,15 @@ pub fn getInteger64(argv: [*]const Janet, n: i32) i64 {
 pub fn getSize(argv: [*]const Janet, n: i32) usize {
     return c.janet_getsize(Janet.toCPtr(argv), n);
 }
-pub fn getAbstract(argv: [*]const Janet, n: i32, at: *const AbstractType) *c_void {
-    return c.janet_getabstract(Janet.toCPtr(argv), n, at.toC()) orelse unreachable;
+pub fn getAbstract(
+    argv: [*]const Janet,
+    n: i32,
+    comptime value_type: type,
+    at: *const Abstract(value_type).Type,
+) Abstract(value_type) {
+    return Abstract(value_type).fromC(
+        c.janet_getabstract(Janet.toCPtr(argv), n, at.toC()) orelse unreachable,
+    );
 }
 pub fn getHalfRange(argv: [*]const Janet, n: i32, length: i32, which: [:0]const u8) i32 {
     return c.janet_gethalfrange(Janet.toCPtr(argv), n, length, which.ptr);
@@ -266,10 +278,17 @@ pub fn optAbstract(
     argv: [*]const Janet,
     argc: i32,
     n: i32,
-    at: *const AbstractType,
-    dflt: *c_void,
-) *c_void {
-    return c.janet_optabstract(Janet.toCPtr(argv), argc, n, at.toC(), dflt) orelse unreachable;
+    comptime value_type: type,
+    at: *const Abstract(value_type).Type,
+    dflt: Abstract(value_type),
+) Abstract(value_type) {
+    return c.janet_optabstract(
+        Janet.toCPtr(argv),
+        argc,
+        n,
+        at.toC(),
+        dflt.toC(),
+    ) orelse unreachable;
 }
 pub fn optArray(argv: [*]const Janet, argc: i32, n: i32, dflt_len: i32) *Array {
     return Array.fromC(c.janet_optarray(Janet.toCPtr(argv), argc, n, dflt_len));
@@ -637,9 +656,9 @@ const JanetMixin = struct {
         if (!janet.checkType(.function)) return error.NotFunction;
         return Function.fromC(c.janet_unwrap_function(janet.toC()) orelse unreachable);
     }
-    pub fn unwrapAbstract(janet: Janet) !*c_void {
+    pub fn unwrapAbstract(janet: Janet, comptime value_type: type) !Abstract(value_type) {
         if (!janet.checkType(.abstract)) return error.NotAbstract;
-        return c.janet_unwrap_abstract(janet.toC()) orelse unreachable;
+        return Abstract(value_type).fromC(c.janet_unwrap_abstract(janet.toC()) orelse unreachable);
     }
     pub fn unwrapFiber(janet: Janet) !*Fiber {
         if (!janet.checkType(.fiber)) return error.NotFiber;
@@ -1048,34 +1067,77 @@ pub const MarshalContext = extern struct {
     }
 };
 
-pub const AbstractType = extern struct {
-    name: [*:0]const u8,
-    gc: ?fn (p: *c_void, len: usize) callconv(.C) c_int = null,
-    gc_mark: ?fn (p: *c_void, len: usize) callconv(.C) c_int = null,
-    get: ?fn (p: *c_void, key: Janet, out: *Janet) callconv(.C) c_int = null,
-    put: ?fn (p: *c_void, key: Janet, value: Janet) callconv(.C) void = null,
-    marshal: ?fn (p: *c_void, ctx: *MarshalContext) callconv(.C) void = null,
-    unmarshal: ?fn (ctx: *MarshalContext) callconv(.C) *c_void = null,
-    to_string: ?fn (p: *c_void, buffer: *Buffer) callconv(.C) void = null,
-    compare: ?fn (lhs: *c_void, rhs: *c_void) callconv(.C) c_int = null,
-    hash: ?fn (p: *c_void, len: usize) callconv(.C) i32 = null,
-    next: ?fn (p: *c_void, key: Janet) callconv(.C) Janet = null,
-    call: ?fn (p: *c_void, argc: i32, argv: [*]Janet) callconv(.C) Janet = null,
+/// Specialized struct with typed pointers. `value_type` must be the type of the actual value,
+/// not the pointer to the value, for example, for direct C translation of `*c_void`, `value_type`
+/// must be `c_void`.
+pub fn Abstract(comptime value_type: type) type {
+    return struct {
+        ptr: *value_type,
 
-    pub fn toC(at: *const AbstractType) *const c.JanetAbstractType {
-        return @ptrCast(*const c.JanetAbstractType, at);
-    }
-    pub fn fromC(p: *const c.JanetAbstractType) *const AbstractType {
-        return @ptrCast(*const AbstractType, p);
-    }
-};
+        const Self = @This();
+        pub const Head = extern struct {
+            gc: GCObject,
+            @"type": *Type,
+            size: usize,
+            data: [*]c_longlong,
+        };
+        pub const Type = extern struct {
+            name: [*:0]const u8,
+            gc: ?fn (p: *value_type, len: usize) callconv(.C) c_int = null,
+            gc_mark: ?fn (p: *value_type, len: usize) callconv(.C) c_int = null,
+            get: ?fn (p: *value_type, key: Janet, out: *Janet) callconv(.C) c_int = null,
+            put: ?fn (p: *value_type, key: Janet, value: Janet) callconv(.C) void = null,
+            marshal: ?fn (p: *value_type, ctx: *MarshalContext) callconv(.C) void = null,
+            unmarshal: ?fn (ctx: *MarshalContext) callconv(.C) *value_type = null,
+            to_string: ?fn (p: *value_type, buffer: *Buffer) callconv(.C) void = null,
+            compare: ?fn (lhs: *value_type, rhs: *value_type) callconv(.C) c_int = null,
+            hash: ?fn (p: *value_type, len: usize) callconv(.C) i32 = null,
+            next: ?fn (p: *value_type, key: Janet) callconv(.C) Janet = null,
+            call: ?fn (p: *value_type, argc: i32, argv: [*]Janet) callconv(.C) Janet = null,
 
-pub const AbstractHead = extern struct {
-    gc: GCObject,
-    @"type": *AbstractType,
-    size: usize,
-    data: [*]c_longlong,
-};
+            pub fn toC(self: *const Type) *const c.JanetAbstractType {
+                return @ptrCast(*const c.JanetAbstractType, self);
+            }
+            pub fn fromC(p: *const c.JanetAbstractType) *const Type {
+                return @ptrCast(*const Type, p);
+            }
+            pub fn toVoid(self: *const Type) *const Abstract(c_void).Type {
+                return @ptrCast(*const Abstract(c_void).Type, self);
+            }
+
+            pub fn register(self: *const Type) void {
+                c.janet_register_abstract_type(self.toC());
+            }
+        };
+
+        pub fn toC(self: Self) *c_void {
+            return @ptrCast(*c_void, self.ptr);
+        }
+        pub fn fromC(p: *c_void) Self {
+            return Self{ .ptr = @ptrCast(*value_type, @alignCast(@alignOf(*value_type), p)) };
+        }
+        pub fn fromPtr(v: *value_type) Self {
+            return Self{ .ptr = v };
+        }
+
+        pub fn wrap(self: Self) Janet {
+            return Janet.fromC(c.janet_wrap_abstract(self.toC()));
+        }
+        pub fn marshal(self: Self, ctx: *MarshalContext) void {
+            c.janet_marshal_abstract(ctx.toC(), self.toC());
+        }
+        pub fn unmarshal(ctx: *MarshalContext) Self {
+            return fromC(
+                c.janet_unmarshal_abstract(ctx.toC(), @sizeOf(value_type)) orelse unreachable,
+            );
+        }
+    };
+}
+
+pub const VoidAbstract = Abstract(c_void);
+
+/// Pure translation of a C struct with pointers *c_void.
+pub const AbstractType = VoidAbstract.Type;
 
 pub const Reg = extern struct {
     name: ?[*:0]const u8,
@@ -1227,7 +1289,7 @@ test "unwrap values" {
     {
         var value: Janet = undefined;
         try doString(env, "(file/temp)", "main", &value);
-        _ = try value.unwrapAbstract();
+        _ = try value.unwrapAbstract(c_void);
     }
     {
         var value: Janet = undefined;
@@ -1300,8 +1362,6 @@ test "table" {
 const ZigStruct = struct {
     counter: u32,
 
-    pub const abstract_type = AbstractType{ .name = "zig-struct" };
-
     // Receives pointer to struct and argument
     pub fn inc(self: *ZigStruct, n: u32) void {
         self.counter += n;
@@ -1313,32 +1373,32 @@ const ZigStruct = struct {
     }
 };
 
+const ZigStructAbstract = Abstract(ZigStruct);
+const zig_struct_abstract_type = ZigStructAbstract.Type{ .name = "zig-struct" };
+
 /// Initializer with an optional default value for the `counter`.
 fn cfunZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     arity(argc, 0, 1);
-    const stptr = abstract(&ZigStruct.abstract_type, @sizeOf(ZigStruct));
+    const st_abstract = abstract(ZigStruct, &zig_struct_abstract_type);
     const n = optNat(argv, 0, argc, 1);
-    var st = fromPtr(*ZigStruct, stptr);
-    st.counter = @intCast(u32, n);
-    return wrapAbstract(stptr);
+    st_abstract.ptr.counter = @intCast(u32, n);
+    return st_abstract.wrap();
 }
 
 /// `inc` wrapper which receives a struct and a number to increase the `counter` to.
 fn cfunInc(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 2);
-    var stptr = getAbstract(argv, 0, &ZigStruct.abstract_type);
+    var st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
     const n = getNat(argv, 1);
-    var st = fromPtr(*ZigStruct, stptr);
-    st.inc(@intCast(u32, n));
+    st_abstract.ptr.inc(@intCast(u32, n));
     return wrapNil();
 }
 
 /// `dec` wrapper which fails if we try to decrease the `counter` below 0.
 fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 1);
-    var stptr = getAbstract(argv, 0, &ZigStruct.abstract_type);
-    var st = fromPtr(*ZigStruct, stptr);
-    st.dec() catch {
+    var st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
+    st_abstract.ptr.dec() catch {
         panic("expected failure, part of the test");
     };
     return wrapNil();
@@ -1347,9 +1407,8 @@ fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 /// Simple getter returning an integer value.
 fn cfunGetcounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 1);
-    const stptr = getAbstract(argv, 0, &ZigStruct.abstract_type);
-    const st = fromPtr(*ZigStruct, stptr);
-    return wrapInteger(@bitCast(i32, st.counter));
+    const st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
+    return wrapInteger(@bitCast(i32, st_abstract.ptr.counter));
 }
 
 const zig_struct_cfuns = [_]Reg{
@@ -1378,17 +1437,16 @@ test "abstract" {
 }
 
 // We need an allocator to pass to the Zig struct.
-const AllyAbstractType = AbstractType{ .name = "zig-allocator" };
+const AllyAbstractType = Abstract(*std.mem.Allocator).Type{ .name = "zig-allocator" };
 
 /// Initializer to make Zig's allocator into existence.
 fn cfunInitZigAllocator(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 0);
-    const allyptr = abstract(&AllyAbstractType, @sizeOf(*std.mem.Allocator));
-    var ally = fromPtr(**std.mem.Allocator, allyptr);
+    const ally_abstract = abstract(*std.mem.Allocator, &AllyAbstractType);
     // This will have to be a global definition of an allocator, otherwise it is impossible
     // to get one inside this function. Here we are fine since `testing` has a global allocator.
-    ally.* = testing.allocator;
-    return wrapAbstract(allyptr);
+    ally_abstract.ptr.* = testing.allocator;
+    return ally_abstract.wrap();
 }
 
 // With all the possible functions.
@@ -1409,23 +1467,20 @@ const ComplexZigStruct = struct {
     }
 };
 
-fn czsGc(data: *c_void, len: usize) callconv(.C) c_int {
+fn czsGc(st: *ComplexZigStruct, len: usize) callconv(.C) c_int {
     _ = len;
-    var st = fromPtr(*ComplexZigStruct, data);
     st.deinit();
     return 0;
 }
-fn czsGcMark(data: *c_void, len: usize) callconv(.C) c_int {
+fn czsGcMark(st: *ComplexZigStruct, len: usize) callconv(.C) c_int {
     _ = len;
-    const st = fromPtr(*ComplexZigStruct, data);
     var it = st.storage.valueIterator();
     while (it.next()) |value| {
         mark(value.*);
     }
     return 0;
 }
-fn czsGet(data: *c_void, key: Janet, out: *Janet) callconv(.C) c_int {
-    const st = fromPtr(*ComplexZigStruct, data);
+fn czsGet(st: *ComplexZigStruct, key: Janet, out: *Janet) callconv(.C) c_int {
     const k = key.unwrapKeyword() catch {
         panic("Not a keyword");
     };
@@ -1436,8 +1491,7 @@ fn czsGet(data: *c_void, key: Janet, out: *Janet) callconv(.C) c_int {
         return 0;
     }
 }
-fn czsPut(data: *c_void, key: Janet, value: Janet) callconv(.C) void {
-    const st = fromPtr(*ComplexZigStruct, data);
+fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
     const k = key.unwrapKeyword() catch {
         panic("Not a keyword");
     };
@@ -1454,44 +1508,42 @@ fn czsPut(data: *c_void, key: Janet, value: Janet) callconv(.C) void {
     };
 }
 // We only marshal the counter, the `storage` is lost, as well as allocator.
-fn czsMarshal(p: *c_void, ctx: *MarshalContext) callconv(.C) void {
-    const st = fromPtr(*ComplexZigStruct, p);
+fn czsMarshal(st: *ComplexZigStruct, ctx: *MarshalContext) callconv(.C) void {
     var ally = st.storage.allocator;
-    marshalAbstract(ctx, p);
+    Abstract(ComplexZigStruct).fromPtr(st).marshal(ctx);
     // HACK: we can't marshal more than one abstract type, so we marshal the pointer as integer
     // since the allocator is global and will not change its pointer during program execution.
     marshalSize(ctx, @ptrToInt(&ally));
     marshalInt(ctx, st.counter);
 }
-fn czsUnmarshal(ctx: *MarshalContext) callconv(.C) *c_void {
-    const p = unmarshalAbstract(ctx, @sizeOf(ComplexZigStruct));
-    const st = fromPtr(*ComplexZigStruct, p);
+fn czsUnmarshal(ctx: *MarshalContext) callconv(.C) *ComplexZigStruct {
+    const st_abstract = Abstract(ComplexZigStruct).unmarshal(ctx);
     const allyp = unmarshalSize(ctx);
     const ally = @intToPtr(**std.mem.Allocator, allyp);
     const counter = unmarshalInt(ctx);
-    st.counter = counter;
-    st.storage = std.StringHashMap(Janet).init(ally.*);
-    return p;
+    st_abstract.ptr.counter = counter;
+    st_abstract.ptr.storage = std.StringHashMap(Janet).init(ally.*);
+    return st_abstract.ptr;
 }
-fn czsToString(p: *c_void, buffer: *Buffer) callconv(.C) void {
+fn czsToString(st: *ComplexZigStruct, buffer: *Buffer) callconv(.C) void {
+    _ = st;
     buffer.pushBytes("complex-zig-struct-printing");
 }
-fn czsCompare(lhs: *c_void, rhs: *c_void) callconv(.C) c_int {
-    const st_left = fromPtr(*ComplexZigStruct, lhs);
-    const st_right = fromPtr(*ComplexZigStruct, rhs);
-    if (st_left.counter > st_right.counter) {
+fn czsCompare(lhs: *ComplexZigStruct, rhs: *ComplexZigStruct) callconv(.C) c_int {
+    if (lhs.counter > rhs.counter) {
         return 1;
-    } else if (st_left.counter < st_right.counter) {
+    } else if (lhs.counter < rhs.counter) {
         return -1;
     } else {
         return 0;
     }
 }
-fn czsHash(p: *c_void, len: usize) callconv(.C) i32 {
+fn czsHash(st: *ComplexZigStruct, len: usize) callconv(.C) i32 {
+    _ = st;
+    _ = len;
     return 1337;
 }
-fn czsNext(p: *c_void, key: Janet) callconv(.C) Janet {
-    const st = fromPtr(*ComplexZigStruct, p);
+fn czsNext(st: *ComplexZigStruct, key: Janet) callconv(.C) Janet {
     if (key.checkType(.nil)) {
         var it = st.storage.keyIterator();
         if (it.next()) |next_key| {
@@ -1516,17 +1568,17 @@ fn czsNext(p: *c_void, key: Janet) callconv(.C) Janet {
             return wrapNil();
         }
     }
+    unreachable;
 }
 // We set the counter to the supplied value.
-fn czsCall(p: *c_void, argc: i32, argv: [*]Janet) callconv(.C) Janet {
+fn czsCall(st: *ComplexZigStruct, argc: i32, argv: [*]Janet) callconv(.C) Janet {
     fixarity(argc, 1);
-    const st = fromPtr(*ComplexZigStruct, p);
     const new_counter = getInteger(argv, 0);
     st.counter = new_counter;
     return wrapTrue();
 }
 
-const ComplexZigStructAbstractType = AbstractType{
+const complex_zig_struct_abstract_type = Abstract(ComplexZigStruct).Type{
     .name = "complex-zig-struct",
     .gc = czsGc,
     .gc_mark = czsGcMark,
@@ -1544,19 +1596,16 @@ const ComplexZigStructAbstractType = AbstractType{
 /// Initializer with an optional default value for the `counter`.
 fn cfunComplexZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 1);
-    const stptr = abstract(&ComplexZigStructAbstractType, @sizeOf(ComplexZigStruct));
-    var st = fromPtr(*ComplexZigStruct, stptr);
-    const allyptr = getAbstract(argv, 0, &AllyAbstractType);
-    var ally = fromPtr(**std.mem.Allocator, allyptr);
-    st.* = ComplexZigStruct.init(ally.*);
-    return wrapAbstract(stptr);
+    const st_abstract = abstract(ComplexZigStruct, &complex_zig_struct_abstract_type);
+    const ally_abstract = getAbstract(argv, 0, *std.mem.Allocator, &AllyAbstractType);
+    st_abstract.ptr.* = ComplexZigStruct.init(ally_abstract.ptr.*);
+    return st_abstract.wrap();
 }
 /// Simple getter returning an integer value.
 fn cfunGetComplexCounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 1);
-    const stptr = getAbstract(argv, 0, &ComplexZigStructAbstractType);
-    const st = fromPtr(*ComplexZigStruct, stptr);
-    return wrapInteger(st.counter);
+    const st_abstract = getAbstract(argv, 0, ComplexZigStruct, &complex_zig_struct_abstract_type);
+    return wrapInteger(st_abstract.ptr.counter);
 }
 
 const complex_zig_struct_cfuns = [_]Reg{
@@ -1572,7 +1621,7 @@ test "complex abstract" {
     // with testing.allocator, so the test will fail if we leak memory. And here Janet is
     // responsible for freeing all the allocated memory on deinit.
     defer deinit();
-    registerAbstractType(&ComplexZigStructAbstractType);
+    complex_zig_struct_abstract_type.register();
     var env = coreEnv(null);
     cfunsPrefix(env, "zig", &complex_zig_struct_cfuns);
     // Init our `testing.allocator` as a Janet abstract type.
