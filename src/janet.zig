@@ -827,7 +827,7 @@ pub const Handle = blk: {
     }
 };
 
-pub const HANDLE_NONE = blk: {
+pub const HANDLE_NONE: Handle = blk: {
     if (std.builtin.target.os.tag == .windows) {
         break :blk null;
     } else {
