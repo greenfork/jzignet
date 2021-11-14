@@ -462,7 +462,7 @@ pub fn free(ptr: *c_void) void {
     c.janet_free(ptr);
 }
 
-const JanetType = extern enum {
+const JanetType = enum(c_int) {
     number,
     nil,
     boolean,
@@ -1003,12 +1003,12 @@ pub const Stream = extern struct {
 // declarations. Fix it when Zig compiler can handle this.
 pub const Listener = fn (state: *c.JanetListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
 
-pub const AsyncStatus = extern enum {
+pub const AsyncStatus = enum(c_int) {
     not_done,
     done,
 };
 
-pub const AsyncEvent = extern enum {
+pub const AsyncEvent = enum(c_int) {
     init,
     mark,
     deinit,
