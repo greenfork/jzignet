@@ -998,10 +998,7 @@ pub const Stream = extern struct {
     _mask: c_int,
 };
 
-// FIXME: changing *c.JanetListenerState to *ListenerState produces Zig error:
-// "dependency loop detected". But this should be possible since these are top-level
-// declarations. Fix it when Zig compiler can handle this.
-pub const Listener = fn (state: *c.JanetListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
+pub const Listener = fn (state: *ListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
 
 pub const AsyncStatus = enum(c_int) {
     not_done,
