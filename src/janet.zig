@@ -1,7 +1,15 @@
 const std = @import("std");
 const testing = std.testing;
 
+// Configuration
+
+// TODO: check why this Janet implementation is broken here.
+pub const JANET_NO_NANBOX = false;
+
 pub const c = @cImport({
+    if (JANET_NO_NANBOX) {
+        @cDefine("JANET_NO_NANBOX", {});
+    }
     @cInclude("janet.h");
 });
 
@@ -506,7 +514,23 @@ pub const TFLAG_LENGTHABLE = TFLAG_BYTES | TFLAG_INDEXED | TFLAG_DICTIONARY;
 pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE | TFLAG_ABSTRACT;
 
 pub const Janet = blk: {
-    if (std.builtin.target.cpu.arch == .x86_64) {
+    if (JANET_NO_NANBOX or
+        std.builtin.target.cpu.arch.isARM() or
+        std.builtin.target.cpu.arch == .aarch64)
+    {
+        break :blk extern struct {
+            as: extern union {
+                @"u64": u64,
+                number: f64,
+                integer: i32,
+                pointer: *c_void,
+                cpointer: *const c_void,
+            },
+            @"type": c.JanetType,
+
+            pub usingnamespace JanetMixin;
+        };
+    } else if (std.builtin.target.cpu.arch == .x86_64) {
         break :blk extern union {
             @"u64": u64,
             @"i64": i64,
@@ -540,21 +564,6 @@ pub const Janet = blk: {
             },
             number: f64,
             @"u64": u64,
-
-            pub usingnamespace JanetMixin;
-        };
-    } else {
-        // TODO: This is when JANET_NO_NANBOX is defined, we probably need some condition
-        // to enable it.
-        break :blk extern struct {
-            as: extern union {
-                @"u64": u64,
-                number: f64,
-                integer: i32,
-                pointer: *c_void,
-                cpointer: *const c_void,
-            },
-            @"type": c.JanetType,
 
             pub usingnamespace JanetMixin;
         };
