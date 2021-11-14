@@ -344,6 +344,124 @@ pub fn cfunsExtPrefix(env: *Table, regprefix: [:0]const u8, funs: [*]const RegEx
     return c.janet_cfuns_ext_prefix(env.toC(), regprefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
 }
 
+pub fn mark(x: Janet) void {
+    c.janet_mark(x.toC());
+}
+pub fn sweep() void {
+    c.janet_sweep();
+}
+pub fn collect() void {
+    c.janet_collect();
+}
+pub fn clearMemory() void {
+    c.janet_clear_memory();
+}
+pub fn gcRoot(root: Janet) void {
+    c.janet_gcroot(root.toC());
+}
+pub fn gcUnroot(root: Janet) c_int {
+    return c.janet_gcunroot(root.toC());
+}
+pub fn gcUnrootAll(root: Janet) c_int {
+    return c.janet_gcunrootall(root.toC());
+}
+pub fn gcLock() c_int {
+    return c.janet_gclock();
+}
+pub fn gcUnlock(handle: c_int) void {
+    return c.janet_gcunlock(handle);
+}
+pub fn gcPressure(s: usize) void {
+    c.janet_gcpressure(s);
+}
+
+pub const MARSHAL_UNSAFE = c.JANET_MARSHAL_UNSAFE;
+pub fn marshal(buf: *Buffer, x: Janet, rreg: *Table, flags: c_int) void {
+    c.janet_marshal(buf.toC(), x.toC(), rreg.toC(), flags);
+}
+pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Table, next: [*]*const u8) Janet {
+    return Janet.fromC(c.janet_unmarshal(
+        bytes.ptr,
+        bytes.len,
+        flags,
+        reg.toC(),
+        @ptrCast([*c][*c]const u8, next),
+    ));
+}
+pub fn envLookup(env: *Table) *Table {
+    return Table.fromC(c.janet_env_lookup(env.toC()));
+}
+pub fn envLookupInto(renv: *Table, env: *Table, prefix: [:0]const u8, recurse: c_int) void {
+    c.janet_env_lookup_into(renv.toC(), env.toC(), prefix.ptr, recurse);
+}
+pub fn marshalSize(ctx: *MarshalContext, value: usize) void {
+    c.janet_marshal_size(ctx.toC(), value);
+}
+pub fn marshalInt(ctx: *MarshalContext, value: i32) void {
+    c.janet_marshal_int(ctx.toC(), value);
+}
+pub fn marshalInt64(ctx: *MarshalContext, value: i64) void {
+    c.janet_marshal_int64(ctx.toC(), value);
+}
+pub fn marshalByte(ctx: *MarshalContext, value: u8) void {
+    c.janet_marshal_byte(ctx.toC(), value);
+}
+pub fn marshalBytes(ctx: *MarshalContext, value: []const u8) void {
+    c.janet_marshal_bytes(ctx.toC(), value.ptr, value.len);
+}
+pub fn marshalJanet(ctx: *MarshalContext, value: Janet) void {
+    c.janet_marshal_janet(ctx.toC(), value.toC());
+}
+pub fn marshalAbstract(ctx: *MarshalContext, value: *c_void) void {
+    c.janet_marshal_abstract(ctx.toC(), value);
+}
+pub fn unmarshalEnsure(ctx: *MarshalContext, size: usize) void {
+    c.janet_unmarshal_ensure(ctx.toC(), size);
+}
+pub fn unmarshalSize(ctx: *MarshalContext) usize {
+    return c.janet_unmarshal_size(ctx.toC());
+}
+pub fn unmarshalInt(ctx: *MarshalContext) i32 {
+    return c.janet_unmarshal_int(ctx.toC());
+}
+pub fn unmarshalInt64(ctx: *MarshalContext) i64 {
+    return c.janet_unmarshal_int64(ctx.toC());
+}
+pub fn unmarshalByte(ctx: *MarshalContext) u8 {
+    return c.janet_unmarshal_byte(ctx.toC());
+}
+pub fn unmarshalBytes(ctx: *MarshalContext, dest: []u8) void {
+    c.janet_unmarshal_bytes(ctx.toC(), dest.ptr, dest.len);
+}
+pub fn unmarshalJanet(ctx: *MarshalContext) Janet {
+    return Janet.fromC(c.janet_unmarshal_janet(ctx.toC()));
+}
+pub fn unmarshalAbstract(ctx: *MarshalContext, size: usize) *c_void {
+    return c.janet_unmarshal_abstract(ctx.toC(), size) orelse unreachable;
+}
+pub fn unmarshalAbstractReuse(ctx: *MarshalContext, p: *c_void) void {
+    c.janet_unmarshal_abstract_reuse(ctx.toC(), p);
+}
+pub fn registerAbstractType(at: *const AbstractType) void {
+    c.janet_register_abstract_type(at.toC());
+}
+pub fn getAbstractType(key: Janet) *const AbstractType {
+    return AbstractType.fromC(c.janet_get_abstract_type(key.toC()));
+}
+
+pub fn malloc(size: usize) ?*c_void {
+    return c.janet_malloc(size);
+}
+pub fn realloc(ptr: *c_void, size: usize) ?*c_void {
+    return c.janet_realloc(ptr, size);
+}
+pub fn calloc(nmemb: usize, size: usize) ?*c_void {
+    return c.janet_calloc(nmemb, size);
+}
+pub fn free(ptr: *c_void) void {
+    c.janet_free(ptr);
+}
+
 const JanetType = extern enum {
     number,
     nil,
@@ -613,7 +731,6 @@ pub const Array = extern struct {
     pub fn toC(self: *Array) *c.JanetArray {
         return @ptrCast(*c.JanetArray, self);
     }
-
     pub fn fromC(ptr: *c.JanetArray) *Array {
         return @ptrCast(*Array, ptr);
     }
@@ -628,9 +745,47 @@ pub const Buffer = extern struct {
     pub fn toC(self: *Buffer) *c.JanetBuffer {
         return @ptrCast(*c.JanetBuffer, self);
     }
-
     pub fn fromC(ptr: *c.JanetBuffer) *Buffer {
         return @ptrCast(*Buffer, ptr);
+    }
+
+    /// C function: janet_buffer_init
+    pub fn init(janet: Janet, capacity: i32) *Buffer {
+        return fromC(c.janet_buffer_init(janet.toC(), capacity));
+    }
+    /// C function: janet_buffer
+    pub fn initDynamic(capacity: i32) *Buffer {
+        return fromC(c.janet_buffer(capacity));
+    }
+    pub fn deinit(self: *Buffer) void {
+        c.janet_buffer_deinit(self.toC());
+    }
+    pub fn ensure(self: *Buffer, capacity: i32, growth: i32) void {
+        c.janet_buffer_ensure(self.toC(), capacity, growth);
+    }
+    pub fn setCount(self: *Buffer, count: i32) void {
+        c.janet_buffer_setcount(self.toC(), count);
+    }
+    pub fn extra(self: *Buffer, n: i32) void {
+        c.janet_buffer_extra(self.toC(), n);
+    }
+    pub fn pushBytes(self: *Buffer, bytes: []const u8) void {
+        c.janet_buffer_push_bytes(self.toC(), bytes.ptr, @intCast(i32, bytes.len));
+    }
+    pub fn pushString(self: *Buffer, string: Janet) void {
+        c.janet_buffer_push_string(self.toC(), string.toC());
+    }
+    pub fn pushU8(self: *Buffer, x: u8) void {
+        c.janet_buffer_push_u8(self.toC(), x);
+    }
+    pub fn pushU16(self: *Buffer, x: u16) void {
+        c.janet_buffer_push_u16(self.toC(), x);
+    }
+    pub fn pushU32(self: *Buffer, x: u32) void {
+        c.janet_buffer_push_u32(self.toC(), x);
+    }
+    pub fn pushU64(self: *Buffer, x: u64) void {
+        c.janet_buffer_push_u64(self.toC(), x);
     }
 };
 
@@ -878,24 +1033,34 @@ pub const MarshalContext = extern struct {
     flags: c_int,
     data: [*]const u8,
     at: *AbstractType,
+
+    pub fn toC(mc: *MarshalContext) *c.JanetMarshalContext {
+        return @ptrCast(*c.JanetMarshalContext, mc);
+    }
+    pub fn fromC(mc: *c.JanetMarshalContext) *MarshalContext {
+        return @ptrCast(*MarshalContext, mc);
+    }
 };
 
 pub const AbstractType = extern struct {
     name: [*:0]const u8,
     gc: ?fn (data: *c_void, len: usize) callconv(.C) c_int = null,
     gcmark: ?fn (data: *c_void, len: usize) callconv(.C) c_int = null,
-    get: ?fn (data: *c_void, key: c.Janet, out: *c.Janet) callconv(.C) c_int = null,
-    put: ?fn (data: *c_void, key: c.Janet, value: c.Janet) callconv(.C) void = null,
+    get: ?fn (data: *c_void, key: Janet, out: *Janet) callconv(.C) c_int = null,
+    put: ?fn (data: *c_void, key: Janet, value: Janet) callconv(.C) void = null,
     marshal: ?fn (p: *c_void, ctx: *MarshalContext) callconv(.C) void = null,
     unmarshal: ?fn (ctx: *MarshalContext) callconv(.C) *c_void = null,
     tostring: ?fn (p: *c_void, buffer: *Buffer) callconv(.C) void = null,
     compare: ?fn (lhs: *c_void, rhs: *c_void) callconv(.C) c_int = null,
     hash: ?fn (p: *c_void, len: usize) callconv(.C) i32 = null,
-    next: ?fn (p: *c_void, key: c.Janet) callconv(.C) Janet = null,
+    next: ?fn (p: *c_void, key: Janet) callconv(.C) Janet = null,
     call: ?fn (p: *c_void, argc: i32, argv: [*]Janet) callconv(.C) Janet = null,
 
     pub fn toC(at: *const AbstractType) *const c.JanetAbstractType {
         return @ptrCast(*const c.JanetAbstractType, at);
+    }
+    pub fn fromC(p: *const c.JanetAbstractType) *const AbstractType {
+        return @ptrCast(*const AbstractType, p);
     }
 };
 
@@ -1204,4 +1369,243 @@ test "abstract" {
     try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
     try doString(env, "(zig/inc st 5)", "main", null);
     try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+}
+
+// We need an allocator to pass to the Zig struct.
+const AllyAbstractType = AbstractType{ .name = "zig-allocator" };
+
+/// Initializer to make Zig's allocator into existence.
+fn cfunInitZigAllocator(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
+    fixarity(argc, 0);
+    const allyptr = abstract(&AllyAbstractType, @sizeOf(*std.mem.Allocator));
+    var ally = fromPtr(**std.mem.Allocator, allyptr);
+    // This will have to be a global definition of an allocator, otherwise it is impossible
+    // to get one inside this function. Here we are fine since `testing` has a global allocator.
+    ally.* = testing.allocator;
+    return wrapAbstract(allyptr);
+}
+
+// With all the possible functions.
+const ComplexZigStruct = struct {
+    counter: i32,
+    // Storing native to Janet values in Zig data structure.
+    storage: std.StringHashMap(Janet),
+
+    // It needs to be initialized first with the Zig's allocator.
+    pub fn init(ally: *std.mem.Allocator) ComplexZigStruct {
+        return ComplexZigStruct{
+            .counter = 0,
+            .storage = std.StringHashMap(Janet).init(ally),
+        };
+    }
+    pub fn deinit(self: *ComplexZigStruct) void {
+        self.storage.deinit();
+    }
+};
+
+fn czsGc(data: *c_void, len: usize) callconv(.C) c_int {
+    _ = len;
+    var st = fromPtr(*ComplexZigStruct, data);
+    st.deinit();
+    return 0;
+}
+fn czsGcMark(data: *c_void, len: usize) callconv(.C) c_int {
+    _ = len;
+    const st = fromPtr(*ComplexZigStruct, data);
+    var it = st.storage.valueIterator();
+    while (it.next()) |value| {
+        mark(value.*);
+    }
+    return 0;
+}
+fn czsGet(data: *c_void, key: Janet, out: *Janet) callconv(.C) c_int {
+    const st = fromPtr(*ComplexZigStruct, data);
+    const k = key.unwrapKeyword() catch {
+        panic("Not a keyword");
+    };
+    if (st.storage.get(k.slice)) |value| {
+        out.* = value;
+        return 1;
+    } else {
+        return 0;
+    }
+}
+fn czsPut(data: *c_void, key: Janet, value: Janet) callconv(.C) void {
+    const st = fromPtr(*ComplexZigStruct, data);
+    const k = key.unwrapKeyword() catch {
+        panic("Not a keyword");
+    };
+    // HACK: allocating the key to be stored in our struct's `storage` via Janet's allocation
+    // function which is never freed. I'm too lazy to implement allocating and deallocating of
+    // strings via Zig's allocator, sorry.
+    var allocated_key = @ptrCast(
+        [*]u8,
+        @alignCast(@alignOf([*]u8), malloc(k.slice.len)),
+    )[0..k.slice.len];
+    std.mem.copy(u8, allocated_key, k.slice);
+    st.storage.put(allocated_key, value) catch {
+        panic("Out of memory");
+    };
+}
+// We only marshal the counter, the `storage` is lost, as well as allocator.
+fn czsMarshal(p: *c_void, ctx: *MarshalContext) callconv(.C) void {
+    const st = fromPtr(*ComplexZigStruct, p);
+    var ally = st.storage.allocator;
+    marshalAbstract(ctx, p);
+    // HACK: we can't marshal more than one abstract type, so we marshal the pointer as integer
+    // since the allocator is global and will not change its pointer during program execution.
+    marshalSize(ctx, @ptrToInt(&ally));
+    marshalInt(ctx, st.counter);
+}
+fn czsUnmarshal(ctx: *MarshalContext) callconv(.C) *c_void {
+    const p = unmarshalAbstract(ctx, @sizeOf(ComplexZigStruct));
+    const st = fromPtr(*ComplexZigStruct, p);
+    const allyp = unmarshalSize(ctx);
+    const ally = @intToPtr(**std.mem.Allocator, allyp);
+    const counter = unmarshalInt(ctx);
+    st.counter = counter;
+    st.storage = std.StringHashMap(Janet).init(ally.*);
+    return p;
+}
+fn czsToString(p: *c_void, buffer: *Buffer) callconv(.C) void {
+    buffer.pushBytes("complex-zig-struct-printing");
+}
+fn czsCompare(lhs: *c_void, rhs: *c_void) callconv(.C) c_int {
+    const st_left = fromPtr(*ComplexZigStruct, lhs);
+    const st_right = fromPtr(*ComplexZigStruct, rhs);
+    if (st_left.counter > st_right.counter) {
+        return 1;
+    } else if (st_left.counter < st_right.counter) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+fn czsHash(p: *c_void, len: usize) callconv(.C) i32 {
+    return 1337;
+}
+fn czsNext(p: *c_void, key: Janet) callconv(.C) Janet {
+    const st = fromPtr(*ComplexZigStruct, p);
+    if (key.checkType(.nil)) {
+        var it = st.storage.keyIterator();
+        if (it.next()) |next_key| {
+            return keywordv(next_key.*);
+        } else {
+            return wrapNil();
+        }
+    } else {
+        const str_key = key.unwrapKeyword() catch {
+            panic("Not a keyword");
+        };
+        var it = st.storage.keyIterator();
+        while (it.next()) |k| {
+            if (std.mem.eql(u8, k.*, str_key.slice)) {
+                if (it.next()) |next_key| {
+                    return keywordv(next_key.*);
+                } else {
+                    return wrapNil();
+                }
+            }
+        } else {
+            return wrapNil();
+        }
+    }
+}
+// We set the counter to the supplied value.
+fn czsCall(p: *c_void, argc: i32, argv: [*]Janet) callconv(.C) Janet {
+    fixarity(argc, 1);
+    const st = fromPtr(*ComplexZigStruct, p);
+    const new_counter = getInteger(argv, 0);
+    st.counter = new_counter;
+    return wrapTrue();
+}
+
+const ComplexZigStructAbstractType = AbstractType{
+    .name = "complex-zig-struct",
+    .gc = czsGc,
+    .gcmark = czsGcMark,
+    .get = czsGet,
+    .put = czsPut,
+    .marshal = czsMarshal,
+    .unmarshal = czsUnmarshal,
+    .tostring = czsToString,
+    .compare = czsCompare,
+    .hash = czsHash,
+    .next = czsNext,
+    .call = czsCall,
+};
+
+/// Initializer with an optional default value for the `counter`.
+fn cfunComplexZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
+    fixarity(argc, 1);
+    const stptr = abstract(&ComplexZigStructAbstractType, @sizeOf(ComplexZigStruct));
+    var st = fromPtr(*ComplexZigStruct, stptr);
+    const allyptr = getAbstract(argv, 0, &AllyAbstractType);
+    var ally = fromPtr(**std.mem.Allocator, allyptr);
+    st.* = ComplexZigStruct.init(ally.*);
+    return wrapAbstract(stptr);
+}
+/// Simple getter returning an integer value.
+fn cfunGetComplexCounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
+    fixarity(argc, 1);
+    const stptr = getAbstract(argv, 0, &ComplexZigStructAbstractType);
+    const st = fromPtr(*ComplexZigStruct, stptr);
+    return wrapInteger(st.counter);
+}
+
+const complex_zig_struct_cfuns = [_]Reg{
+    Reg{ .name = "complex-struct-init", .cfun = cfunComplexZigStruct },
+    Reg{ .name = "get-counter", .cfun = cfunGetComplexCounter },
+    Reg{ .name = "alloc-init", .cfun = cfunInitZigAllocator },
+    Reg.empty,
+};
+
+test "complex abstract" {
+    try init();
+    // Testing `gc` function implementation. The memory for our abstract type is allocated
+    // with testing.allocator, so the test will fail if we leak memory. And here Janet is
+    // responsible for freeing all the allocated memory on deinit.
+    defer deinit();
+    registerAbstractType(&ComplexZigStructAbstractType);
+    var env = coreEnv(null);
+    cfunsPrefix(env, "zig", &complex_zig_struct_cfuns);
+    // Init our `testing.allocator` as a Janet abstract type.
+    try doString(env, "(def ally (zig/alloc-init))", "main", null);
+    // Init our complex struct which requires a Zig allocator.
+    try doString(env, "(def st (zig/complex-struct-init ally))", "main", null);
+    try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
+    // Testing `get` implementation.
+    try doString(env, "(assert (= (get st :me) nil))", "main", null);
+    // Testing `put` implementation.
+    try doString(env, "(put st :me [1 2 3])", "main", null);
+    // Testing `gcMark` implementation. If we don't implement gcMark, GC will collect [1 2 3]
+    // tuple and Janet will panic trying to retrieve it.
+    try doString(env, "(gccollect)", "main", null);
+    try doString(env, "(assert (= (get st :me) [1 2 3]))", "main", null);
+    // Testing `call` implementation.
+    try doString(env, "(st 5)", "main", null);
+    try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+    // Testing marshaling.
+    try doString(env, "(def marshaled (marshal st))", "main", null);
+    try doString(env, "(def unmarshaled (unmarshal marshaled))", "main", null);
+    try doString(env, "(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
+    // Testing `compare` implementation.
+    try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+    try doString(env, "(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
+    try doString(env, "(assert (compare= unmarshaled st))", "main", null);
+    try doString(env, "(st 3)", "main", null);
+    try doString(env, "(assert (compare> unmarshaled st))", "main", null);
+    // Testing `hash` implementation.
+    try doString(env, "(assert (= (hash st) 1337))", "main", null);
+    // Testing `next` implementation.
+    try doString(env, "(put st :mimi 42)", "main", null);
+    try doString(
+        env,
+        \\(eachp [k v] st
+        \\  (assert (or (and (= k :me)   (= v [1 2 3]))
+        \\              (and (= k :mimi) (= v 42)))))
+    ,
+        "main",
+        null,
+    );
 }
