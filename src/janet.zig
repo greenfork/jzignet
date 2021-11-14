@@ -331,17 +331,17 @@ pub fn wrapInteger(n: i32) Janet {
     return Janet.fromC(c.janet_wrap_integer(n));
 }
 
-pub fn cfuns(env: *Table, regprefix: [:0]const u8, funs: [*]const Reg) void {
-    return c.janet_cfuns(env.toC(), regprefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
+pub fn cfuns(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
+    return c.janet_cfuns(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
 }
-pub fn cfunsExt(env: *Table, regprefix: [:0]const u8, funs: [*]const RegExt) void {
-    return c.janet_cfuns_ext(env.toC(), regprefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
+pub fn cfunsExt(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
+    return c.janet_cfuns_ext(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
 }
-pub fn cfunsPrefix(env: *Table, regprefix: [:0]const u8, funs: [*]const Reg) void {
-    return c.janet_cfuns_prefix(env.toC(), regprefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
+pub fn cfunsPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
+    return c.janet_cfuns_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
 }
-pub fn cfunsExtPrefix(env: *Table, regprefix: [:0]const u8, funs: [*]const RegExt) void {
-    return c.janet_cfuns_ext_prefix(env.toC(), regprefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
+pub fn cfunsExtPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
+    return c.janet_cfuns_ext_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
 }
 
 pub fn mark(x: Janet) void {
@@ -714,14 +714,6 @@ pub const Keyword = struct {
     }
 };
 
-pub const GCObject = extern struct {
-    flags: i32,
-    blocks: extern union {
-        next: *GCObject,
-        refcount: i32,
-    },
-};
-
 pub const Array = extern struct {
     gc: GCObject,
     count: i32,
@@ -881,6 +873,14 @@ pub const Table = extern struct {
     }
 };
 
+pub const GCObject = extern struct {
+    flags: i32,
+    blocks: extern union {
+        next: *GCObject,
+        refcount: i32,
+    },
+};
+
 pub const Function = extern struct {
     gc: GCObject,
     def: *Def,
@@ -899,7 +899,7 @@ pub const Function = extern struct {
         name: String.TypeC,
 
         flags: i32,
-        slotcount: i32,
+        slot_count: i32,
         arity: i32,
         min_arity: i32,
         max_arity: i32,
@@ -930,10 +930,10 @@ pub const Fiber = extern struct {
     gc: GCObject,
     flags: i32,
     frame: i32,
-    stackstart: i32,
-    stackstop: i32,
+    stack_start: i32,
+    stack_stop: i32,
     capacity: i32,
-    maxstack: i32,
+    max_stack: i32,
     env: *Table,
     data: [*]Janet,
     child: *Fiber,
@@ -1041,13 +1041,13 @@ pub const MarshalContext = extern struct {
 
 pub const AbstractType = extern struct {
     name: [*:0]const u8,
-    gc: ?fn (data: *c_void, len: usize) callconv(.C) c_int = null,
-    gcmark: ?fn (data: *c_void, len: usize) callconv(.C) c_int = null,
-    get: ?fn (data: *c_void, key: Janet, out: *Janet) callconv(.C) c_int = null,
-    put: ?fn (data: *c_void, key: Janet, value: Janet) callconv(.C) void = null,
+    gc: ?fn (p: *c_void, len: usize) callconv(.C) c_int = null,
+    gc_mark: ?fn (p: *c_void, len: usize) callconv(.C) c_int = null,
+    get: ?fn (p: *c_void, key: Janet, out: *Janet) callconv(.C) c_int = null,
+    put: ?fn (p: *c_void, key: Janet, value: Janet) callconv(.C) void = null,
     marshal: ?fn (p: *c_void, ctx: *MarshalContext) callconv(.C) void = null,
     unmarshal: ?fn (ctx: *MarshalContext) callconv(.C) *c_void = null,
-    tostring: ?fn (p: *c_void, buffer: *Buffer) callconv(.C) void = null,
+    to_string: ?fn (p: *c_void, buffer: *Buffer) callconv(.C) void = null,
     compare: ?fn (lhs: *c_void, rhs: *c_void) callconv(.C) c_int = null,
     hash: ?fn (p: *c_void, len: usize) callconv(.C) i32 = null,
     next: ?fn (p: *c_void, key: Janet) callconv(.C) Janet = null,
@@ -1520,12 +1520,12 @@ fn czsCall(p: *c_void, argc: i32, argv: [*]Janet) callconv(.C) Janet {
 const ComplexZigStructAbstractType = AbstractType{
     .name = "complex-zig-struct",
     .gc = czsGc,
-    .gcmark = czsGcMark,
+    .gc_mark = czsGcMark,
     .get = czsGet,
     .put = czsPut,
     .marshal = czsMarshal,
     .unmarshal = czsUnmarshal,
-    .tostring = czsToString,
+    .to_string = czsToString,
     .compare = czsCompare,
     .hash = czsHash,
     .next = czsNext,
