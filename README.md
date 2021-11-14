@@ -37,6 +37,10 @@ Why use these bindings:
   since they are structs in C too, others (Tuple, Struct, String, Keyword,
   Symbol) cannot be represented as structs directly and they are wrappers
   with a `ptr` or `slice` field containing the original type.
+* When you need to supply a pointer to the array and a length in the C version,
+  in Zig version you need to supply a slice since it has both the pointer and
+  the length.
+* Abstracts are fully typed, no *void pointers to @ptrCast.
 
 # Q'n'A
 
