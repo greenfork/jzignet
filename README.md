@@ -34,6 +34,7 @@ TODO
 * Some Janet functions have inconsistent naming, for example, `janet_wrap_number`
   but `janet_getnumber`. **All** bindings have idiomatic Zig naming, in this
   example it would be `wrapNumber` and `getNumber`.
+* Functions like `janet_table` are available as `Table.init`
 
 ## Semantics
 * Return types return error sets as well as optional values where it makes
