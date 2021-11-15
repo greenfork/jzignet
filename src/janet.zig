@@ -485,6 +485,41 @@ pub fn free(ptr: *c_void) void {
     c.janet_free(ptr);
 }
 
+pub fn indexedView(seq: Janet, data: *[*]const Janet, len: *i32) !void {
+    const rs = c.janet_indexed_view(seq.toC(), @ptrCast([*c][*c]const c.Janet, data), len);
+    if (rs <= 0) return error.CannotConstructView;
+}
+pub fn bytesView(str: Janet, data: *[*]const u8, len: *i32) !void {
+    const rs = c.janet_bytes_view(str.toC(), @ptrCast([*c][*c]const u8, data), len);
+    if (rs <= 0) return error.CannotConstructView;
+}
+pub fn dictionaryView(tab: Janet, data: *[*]const KV, len: *i32, cap: *i32) !void {
+    const rs = c.janet_dictionary_view(
+        tab.toC(),
+        @ptrCast([*c][*c]const c.JanetKV, data),
+        len,
+        cap,
+    );
+    if (rs <= 0) return error.CannotConstructView;
+}
+pub fn dictionaryGet(data: [*]const KV, cap: i32, key: Janet) ?Janet {
+    const value = Janet.fromC(
+        c.janet_dictionary_get(@ptrCast([*c]const c.JanetKV, data), cap, key.toC()),
+    );
+    if (value.checkType(.nil)) {
+        return null;
+    } else {
+        return value;
+    }
+}
+pub fn dictionaryNext(kvs: [*]const KV, cap: i32, kv: *const KV) ?*const KV {
+    return @ptrCast(?*const KV, c.janet_dictionary_next(
+        @ptrCast([*c]const c.JanetKV, kvs),
+        cap,
+        @ptrCast([*c]const c.JanetKV, kv),
+    ));
+}
+
 const JanetType = enum(c_int) {
     number,
     nil,
@@ -703,10 +738,32 @@ pub const String = struct {
         return String{ .slice = std.mem.span(ptr) };
     }
 
-    pub fn head(self: String) !*Head {
+    pub fn head(self: String) *Head {
         const h = c.janet_string_head(self.slice.ptr);
         const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
+    }
+    pub fn length(self: String) i32 {
+        return self.head().length;
+    }
+
+    pub fn begin(len: i32) [*]u8 {
+        return @ptrCast([*]u8, c.janet_string_begin(len) orelse unreachable);
+    }
+    pub fn end(str: [*]u8) String {
+        return fromC(c.janet_string_end(str));
+    }
+    pub fn init(buf: []u8) String {
+        return fromC(c.janet_string(buf.ptr, @intCast(i32, buf.len)));
+    }
+    pub fn compare(lhs: String, rhs: String) c_int {
+        return c.janet_string_compare(lhs.toC(), rhs.toC());
+    }
+    pub fn equal(lhs: String, rhs: String) bool {
+        return c.janet_string_equal(lhs.toC(), rhs.toC()) > 0;
+    }
+    pub fn equalConst(lhs: String, rhs: []u8, rhash: i32) bool {
+        return c.janet_string_equalconst(lhs.toC(), rhs.ptr, @intCast(i32, rhs.len), rhash) > 0;
     }
 
     pub fn wrap(self: String) Janet {
@@ -763,6 +820,31 @@ pub const Array = extern struct {
         return @ptrCast(*Array, ptr);
     }
 
+    pub fn init(capacity: i32) *Array {
+        return fromC(c.janet_array(capacity));
+    }
+    pub fn initN(elements: []const Janet) *Array {
+        return fromC(c.janet_array_n(
+            @ptrCast([*c]const c.Janet, elements.ptr),
+            @intCast(i32, elements.len),
+        ));
+    }
+    pub fn ensure(self: *Array, capacity: i32, growth: i32) void {
+        c.janet_array_ensure(self.toC(), capacity, growth);
+    }
+    pub fn setCount(self: *Array, count: i32) void {
+        c.janet_array_setcount(self.toC(), count);
+    }
+    pub fn push(self: *Array, x: Janet) void {
+        c.janet_array_push(self.toC(), x.toC());
+    }
+    pub fn pop(self: *Array) Janet {
+        return Janet.fromC(c.janet_array_pop(self.toC()));
+    }
+    pub fn peek(self: *Array) Janet {
+        return Janet.fromC(c.janet_array_peek(self.toC()));
+    }
+
     pub fn wrap(self: *Array) Janet {
         return Janet.fromC(c.janet_wrap_array(self.toC()));
     }
@@ -782,8 +864,8 @@ pub const Buffer = extern struct {
     }
 
     /// C function: janet_buffer_init
-    pub fn init(janet: Janet, capacity: i32) *Buffer {
-        return fromC(c.janet_buffer_init(janet.toC(), capacity));
+    pub fn init(buf: *Buffer, capacity: i32) *Buffer {
+        return fromC(c.janet_buffer_init(buf.toC(), capacity));
     }
     /// C function: janet_buffer
     pub fn initDynamic(capacity: i32) *Buffer {
@@ -804,8 +886,8 @@ pub const Buffer = extern struct {
     pub fn pushBytes(self: *Buffer, bytes: []const u8) void {
         c.janet_buffer_push_bytes(self.toC(), bytes.ptr, @intCast(i32, bytes.len));
     }
-    pub fn pushString(self: *Buffer, string: Janet) void {
-        c.janet_buffer_push_string(self.toC(), string.toC());
+    pub fn pushString(self: *Buffer, str: String) void {
+        c.janet_buffer_push_string(self.toC(), str.toC());
     }
     pub fn pushU8(self: *Buffer, x: u8) void {
         c.janet_buffer_push_u8(self.toC(), x);
@@ -850,10 +932,26 @@ pub const Tuple = struct {
         return @ptrCast(TypeC, self.slice.ptr);
     }
 
-    pub fn head(self: Tuple) !*Head {
+    pub fn head(self: Tuple) *Head {
         const h = c.janet_tuple_head(@ptrCast(*const c.Janet, self.slice.ptr));
         const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
+    }
+    pub fn length(self: Tuple) i32 {
+        return self.head().length;
+    }
+
+    pub fn begin(len: i32) [*]Janet {
+        return @ptrCast([*]Janet, c.janet_tuple_begin(len));
+    }
+    pub fn end(tuple: [*]Janet) Tuple {
+        return fromC(c.janet_tuple_end(@ptrCast([*c]c.Janet, tuple)));
+    }
+    pub fn initN(values: []const Janet) Tuple {
+        return fromC(c.janet_tuple_n(
+            @ptrCast([*c]const c.Janet, values.ptr),
+            @intCast(i32, values.len),
+        ));
     }
 
     pub fn wrap(self: Tuple) Janet {
@@ -881,16 +979,24 @@ pub const Struct = struct {
         return Struct{ .ptr = @ptrCast(TypeImpl, ptr) };
     }
 
-    pub fn head(self: Struct) !*Head {
+    pub fn head(self: Struct) *Head {
         const h = c.janet_struct_head(@ptrCast(*const c.JanetKV, self.toC()));
         const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
     }
-
-    pub fn find(self: Struct, key: Janet) ?*const KV {
-        return @ptrCast(?*const KV, c.janet_struct_find(self.toC(), key.toC()));
+    pub fn length(self: Struct) i32 {
+        return self.head().length;
     }
 
+    pub fn begin(count: i32) [*]KV {
+        return @ptrCast([*]KV, c.janet_struct_begin(count));
+    }
+    pub fn put(st: [*]KV, key: Janet, value: Janet) void {
+        c.janet_struct_put(@ptrCast([*c]c.JanetKV, st), key.toC(), value.toC());
+    }
+    pub fn end(st: [*]KV) Struct {
+        return fromC(c.janet_struct_end(@ptrCast([*c]c.JanetKV, st)));
+    }
     pub fn get(self: Struct, key: Janet) ?Janet {
         const value = Janet.fromC(c.janet_struct_get(self.toC(), key.toC()));
         if (value.checkType(.nil)) {
@@ -898,6 +1004,12 @@ pub const Struct = struct {
         } else {
             return value;
         }
+    }
+    pub fn toTable(self: Struct) *Table {
+        return Table.fromC(c.janet_struct_to_table(self.toC()));
+    }
+    pub fn find(self: Struct, key: Janet) ?*const KV {
+        return @ptrCast(?*const KV, c.janet_struct_find(self.toC(), key.toC()));
     }
 
     pub fn wrap(self: *Struct) Janet {
@@ -921,12 +1033,76 @@ pub const Table = extern struct {
         return @ptrCast(*Table, janet_table);
     }
 
-    pub fn find(self: *Table, key: Janet) ?*const KV {
-        return @ptrCast(?*const KV, c.janet_self_find(self.toC(), key.toC()));
+    // Function janet_table
+    pub fn initDynamic(capacity: i32) *Table {
+        return fromC(c.janet_table(capacity));
     }
-
-    pub fn get(self: *Table, key: Janet) Janet {
-        return Janet.fromC(c.janet_table_get(self.toC(), key.toC()));
+    // Function janet_table_init
+    pub fn init(table: *Table, capacity: i32) *Table {
+        return fromC(c.janet_table_init(table.toC(), capacity));
+    }
+    pub fn initRaw(table: *Table, capacity: i32) *Table {
+        return fromC(c.janet_table_init_raw(table.toC(), capacity));
+    }
+    pub fn deinit(self: *Table) void {
+        self.deinit();
+    }
+    pub fn get(self: *Table, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_table_get(self.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+    pub fn getEx(self: *Table, key: Janet, which: **Table) ?Janet {
+        const value = Janet.fromC(c.janet_table_get_ex(
+            self.toC(),
+            key.toC(),
+            @ptrCast([*c][*c]c.JanetTable, which),
+        ));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+    pub fn rawGet(self: *Table, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_table_rawget(self.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+    pub fn remove(self: *Table, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_table_remove(self.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+    pub fn put(self: *Table, key: Janet, value: Janet) void {
+        c.janet_table_put(self.toC(), key.toC(), value.toC());
+    }
+    pub fn toStruct(self: *Table) Struct {
+        return Struct.fromC(c.janet_table_to_struct(self.toC()));
+    }
+    pub fn mergeTable(self: *Table, other: *Table) void {
+        c.janet_table_merge_table(self.toC(), other.toC());
+    }
+    pub fn mergeStruct(self: *Table, other: Struct) void {
+        c.janet_table_merge_struct(self.toC(), other.toC());
+    }
+    pub fn find(self: *Table, key: Janet) ?*const KV {
+        return @ptrCast(?*const KV, c.janet_table_find(self.toC(), key.toC()));
+    }
+    pub fn clone(self: *Table) *Table {
+        return fromC(c.janet_table_clone(self.toC()));
+    }
+    pub fn clear(self: *Table) void {
+        c.janet_table_clear(self.toC());
     }
 
     pub fn wrap(self: *Table) Janet {
@@ -1026,11 +1202,56 @@ pub const Fiber = extern struct {
     sched_id: i32,
     supervisor_channel: *c_void,
 
+    pub const Status = enum(c_int) {
+        dead,
+        @"error",
+        debug,
+        pending,
+        user0,
+        user1,
+        user2,
+        user3,
+        user4,
+        user5,
+        user6,
+        user7,
+        user8,
+        user9,
+        new,
+        alive,
+    };
+
     pub fn toC(self: *Fiber) *c.JanetFiber {
         return @ptrCast(*c.JanetFiber, self);
     }
     pub fn fromC(ptr: *c.JanetFiber) *Fiber {
         return @ptrCast(*Fiber, ptr);
+    }
+
+    pub fn init(callee: *Function, capacity: i32, argc: i32, argv: [*]const Janet) *Fiber {
+        return fromC(c.janet_fiber(
+            callee.toC(),
+            capacity,
+            argc,
+            @ptrCast([*c]const c.Janet, argv),
+        ));
+    }
+    pub fn reset(self: *Fiber, callee: *Function, argc: i32, argv: [*]const Janet) *Fiber {
+        return fromC(c.janet_fiber_reset(
+            self.toC(),
+            callee.toC(),
+            argc,
+            @ptrCast([*c]const c.Janet, argv),
+        ));
+    }
+    pub fn status(self: *Fiber) Status {
+        return @intToEnum(FiberStatus, c.janet_fiber_status(self.toC()));
+    }
+    pub fn currentFiber() *Fiber {
+        return fromC(c.janet_current_fiber());
+    }
+    pub fn rootFiber() *Fiber {
+        return fromC(c.janet_root_fiber());
     }
 
     pub fn wrap(self: *Fiber) Janet {
@@ -1186,9 +1407,13 @@ pub fn Abstract(comptime value_type: type) type {
             c.janet_marshal_abstract(ctx.toC(), self.toC());
         }
         pub fn unmarshal(ctx: *MarshalContext) Self {
-            return fromC(
-                c.janet_unmarshal_abstract(ctx.toC(), @sizeOf(value_type)) orelse unreachable,
-            );
+            if (value_type != c_void) {
+                return fromC(
+                    c.janet_unmarshal_abstract(ctx.toC(), @sizeOf(value_type)) orelse unreachable,
+                );
+            } else {
+                unreachable; // please use unmarshalAbstract
+            }
         }
     };
 }
@@ -1252,6 +1477,18 @@ pub const RNG = extern struct {
 
 test "refAllDecls" {
     testing.refAllDecls(@This());
+    testing.refAllDecls(JanetMixin);
+    testing.refAllDecls(String);
+    testing.refAllDecls(Symbol);
+    testing.refAllDecls(Keyword);
+    testing.refAllDecls(Array);
+    testing.refAllDecls(Buffer);
+    testing.refAllDecls(Table);
+    testing.refAllDecls(Struct);
+    testing.refAllDecls(Tuple);
+    testing.refAllDecls(Abstract(c_void));
+    testing.refAllDecls(Function);
+    testing.refAllDecls(CFunction);
 }
 
 test "hello world" {
@@ -1299,7 +1536,7 @@ test "unwrap values" {
         var value: Janet = undefined;
         try doString(env, "[58 true 36.0]", "main", &value);
         const tuple = try value.unwrapTuple();
-        try testing.expectEqual(@as(i32, 3), (try tuple.head()).length);
+        try testing.expectEqual(@as(i32, 3), tuple.head().length);
         try testing.expectEqual(@as(usize, 3), tuple.slice.len);
         try testing.expectEqual(@as(i32, 58), try tuple.slice[0].unwrapInteger());
         try testing.expectEqual(true, try tuple.slice[1].unwrapBoolean());
@@ -1390,7 +1627,7 @@ test "struct" {
     const first_kv = st.get(keywordv("kw")).?;
     const second_kv = st.get(symbolv("sym")).?;
     const third_kv = st.get(wrapInteger(98)).?;
-    try testing.expectEqual(@as(i32, 3), (try st.head()).length);
+    try testing.expectEqual(@as(i32, 3), st.head().length);
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
@@ -1404,15 +1641,14 @@ test "table" {
     var value: Janet = undefined;
     try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
     const table = try value.unwrapTable();
-    const first_kv = table.get(keywordv("kw"));
-    const second_kv = table.get(symbolv("sym"));
-    const third_kv = table.get(wrapInteger(98));
-    const none_kv = table.get(wrapInteger(123));
+    const first_kv = table.get(keywordv("kw")).?;
+    const second_kv = table.get(symbolv("sym")).?;
+    const third_kv = table.get(wrapInteger(98)).?;
     try testing.expectEqual(@as(i32, 3), table.count);
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
-    try testing.expectEqual(JanetType.nil, none_kv.janetType());
+    if (table.get(wrapInteger(123))) |v| return error.MustBeNull;
 }
 
 const ZigStruct = struct {
