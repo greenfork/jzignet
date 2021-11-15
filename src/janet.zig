@@ -122,13 +122,14 @@ pub fn fixarity(ary: i32, fix: i32) void {
     c.janet_fixarity(ary, fix);
 }
 
-pub fn getMethod(method: Keyword, methods: [*]const Method, out: *Janet) c_int {
+pub fn getMethod(method: Keyword, methods: [*]const Method, out: *Janet) bool {
     return c.janet_getmethod(
         method.toC(),
         @ptrCast([*c]const c.JanetMethod, methods),
         @ptrCast(*c.Janet, out),
-    );
+    ) > 0;
 }
+// Returns Janet.nil if there's no next method.
 pub fn nextMethod(methods: [*]const Method, key: Janet) Janet {
     return Janet.fromC(c.janet_nextmethod(@ptrCast([*c]const c.JanetMethod, methods), key.toC()));
 }
@@ -167,7 +168,7 @@ pub fn getPointer(argv: [*]const Janet, n: i32) *c_void {
     return c.janet_getpointer(Janet.toCPtr(argv), n) orelse unreachable;
 }
 pub fn getCFunction(argv: [*]const Janet, n: i32) CFunction {
-    return @ptrCast(CFunction, c.janet_getcfunction(Janet.toCPtr(argv), n));
+    return CFunction.fromC(c.janet_getcfunction(Janet.toCPtr(argv), n));
 }
 pub fn getFiber(argv: [*]const Janet, n: i32) *Fiber {
     return Fiber.fromC(c.janet_getfiber(Janet.toCPtr(argv), n) orelse unreachable);
@@ -244,12 +245,7 @@ pub fn optPointer(argv: [*]const Janet, argc: i32, n: i32, dflt: *c_void) *c_voi
     return c.janet_optpointer(Janet.toCPtr(argv), argc, n, dflt) orelse unreachable;
 }
 pub fn optCFunction(argv: [*]const Janet, argc: i32, n: i32, dflt: CFunction) CFunction {
-    return @ptrCast(CFunction, c.janet_optcfunction(
-        Janet.toCPtr(argv),
-        argc,
-        n,
-        @ptrCast(c.JanetCFunction, dflt),
-    ));
+    return CFunction.fromC(c.janet_optcfunction(Janet.toCPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optFiber(argv: [*]const Janet, argc: i32, n: i32, dflt: *Fiber) *Fiber {
     return Fiber.fromC(c.janet_optfiber(
@@ -343,7 +339,7 @@ pub fn wrapFunction(x: *Function) Janet {
     return Janet.fromC(c.janet_wrap_function(x.toC()));
 }
 pub fn wrapCFunction(x: CFunction) Janet {
-    return Janet.fromC(c.janet_wrap_cfunction(@ptrCast(c.JanetCFunction, x)));
+    return Janet.fromC(c.janet_wrap_cfunction(x.toC()));
 }
 pub fn wrapTable(x: *Table) Janet {
     return Janet.fromC(c.janet_wrap_table(x.toC()));
@@ -650,7 +646,7 @@ const JanetMixin = struct {
     }
     pub fn unwrapCFunction(janet: Janet) !CFunction {
         if (!janet.checkType(.cfunction)) return error.NotCFunction;
-        return @ptrCast(CFunction, c.janet_unwrap_cfunction(janet.toC()));
+        return CFunction.fromC(c.janet_unwrap_cfunction(janet.toC()));
     }
     pub fn unwrapFunction(janet: Janet) !*Function {
         if (!janet.checkType(.function)) return error.NotFunction;
@@ -707,10 +703,14 @@ pub const String = struct {
         return String{ .slice = std.mem.span(ptr) };
     }
 
-    pub fn head(self: Tuple) !*Head {
+    pub fn head(self: String) !*Head {
         const h = c.janet_string_head(self.slice.ptr);
         const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
+    }
+
+    pub fn wrap(self: String) Janet {
+        return Janet.fromC(c.janet_wrap_string(self.toC()));
     }
 };
 
@@ -726,6 +726,10 @@ pub const Symbol = struct {
     pub fn fromC(ptr: TypeC) Symbol {
         return Symbol{ .slice = std.mem.span(ptr) };
     }
+
+    pub fn wrap(self: Symbol) Janet {
+        return Janet.fromC(c.janet_wrap_symbol(self.toC()));
+    }
 };
 
 pub const Keyword = struct {
@@ -740,6 +744,10 @@ pub const Keyword = struct {
     pub fn fromC(ptr: TypeC) Keyword {
         return Keyword{ .slice = std.mem.span(ptr) };
     }
+
+    pub fn wrap(self: Keyword) Janet {
+        return Janet.fromC(c.janet_wrap_keyword(self.toC()));
+    }
 };
 
 pub const Array = extern struct {
@@ -753,6 +761,10 @@ pub const Array = extern struct {
     }
     pub fn fromC(ptr: *c.JanetArray) *Array {
         return @ptrCast(*Array, ptr);
+    }
+
+    pub fn wrap(self: *Array) Janet {
+        return Janet.fromC(c.janet_wrap_array(self.toC()));
     }
 };
 
@@ -807,6 +819,10 @@ pub const Buffer = extern struct {
     pub fn pushU64(self: *Buffer, x: u64) void {
         c.janet_buffer_push_u64(self.toC(), x);
     }
+
+    pub fn wrap(self: *Buffer) Janet {
+        return Janet.fromC(c.janet_wrap_buffer(self.toC()));
+    }
 };
 
 pub const Tuple = struct {
@@ -838,6 +854,10 @@ pub const Tuple = struct {
         const h = c.janet_tuple_head(@ptrCast(*const c.Janet, self.slice.ptr));
         const aligned_head = @alignCast(@alignOf(*Head), h);
         return @ptrCast(*Head, aligned_head);
+    }
+
+    pub fn wrap(self: Tuple) Janet {
+        return Janet.fromC(c.janet_wrap_tuple(self.toC()));
     }
 };
 
@@ -871,8 +891,17 @@ pub const Struct = struct {
         return @ptrCast(?*const KV, c.janet_struct_find(self.toC(), key.toC()));
     }
 
-    pub fn get(self: Struct, key: Janet) Janet {
-        return Janet.fromC(c.janet_struct_get(self.toC(), key.toC()));
+    pub fn get(self: Struct, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_struct_get(self.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+
+    pub fn wrap(self: *Struct) Janet {
+        return Janet.fromC(c.janet_wrap_struct(self.toC()));
     }
 };
 
@@ -898,6 +927,10 @@ pub const Table = extern struct {
 
     pub fn get(self: *Table, key: Janet) Janet {
         return Janet.fromC(c.janet_table_get(self.toC(), key.toC()));
+    }
+
+    pub fn wrap(self: *Table) Janet {
+        return Janet.fromC(c.janet_wrap_table(self.toC()));
     }
 };
 
@@ -952,6 +985,28 @@ pub const Function = extern struct {
     pub fn fromC(ptr: *c.JanetFunction) *Function {
         return @ptrCast(*Function, @alignCast(@alignOf(*Function), ptr));
     }
+
+    pub fn wrap(self: *Function) Janet {
+        return Janet.fromC(c.janet_wrap_function(self.toC()));
+    }
+};
+
+pub const CFunction = struct {
+    ptr: TypeImpl,
+
+    pub const TypeImpl = fn (argc: i32, argv: [*]Janet) callconv(.C) Janet;
+    pub const TypeC = fn (argc: i32, argv: [*c]c.Janet) callconv(.C) c.Janet;
+
+    pub fn toC(self: CFunction) c.JanetCFunction {
+        return @ptrCast(c.JanetCFunction, self.ptr);
+    }
+    pub fn fromC(ptr: c.JanetCFunction) CFunction {
+        return CFunction{ .ptr = @ptrCast(TypeImpl, @alignCast(@alignOf(TypeImpl), ptr)) };
+    }
+
+    pub fn wrap(self: CFunction) Janet {
+        return Janet.fromC(c.janet_wrap_cfunction(self.toC()));
+    }
 };
 
 pub const Fiber = extern struct {
@@ -976,6 +1031,10 @@ pub const Fiber = extern struct {
     }
     pub fn fromC(ptr: *c.JanetFiber) *Fiber {
         return @ptrCast(*Fiber, ptr);
+    }
+
+    pub fn wrap(self: *Fiber) Janet {
+        return Janet.fromC(c.janet_wrap_fiber(self.toC()));
     }
 };
 
@@ -1141,7 +1200,7 @@ pub const AbstractType = VoidAbstract.Type;
 
 pub const Reg = extern struct {
     name: ?[*:0]const u8,
-    cfun: ?CFunction,
+    cfun: ?CFunction.TypeImpl,
     documentation: ?[*:0]const u8 = null,
 
     pub const empty = Reg{ .name = null, .cfun = null };
@@ -1149,7 +1208,7 @@ pub const Reg = extern struct {
 
 pub const RegExt = extern struct {
     name: ?[*:0]const u8,
-    cfun: ?CFunction,
+    cfun: ?CFunction.TypeImpl,
     documentation: ?[*:0]const u8 = null,
     source_file: ?[*:0]const u8 = null,
     source_line: i32 = 0,
@@ -1159,7 +1218,7 @@ pub const RegExt = extern struct {
 
 pub const Method = extern struct {
     name: [*:0]const u8,
-    cfun: CFunction,
+    cfun: CFunction.TypeImpl,
 };
 
 pub const View = extern struct {
@@ -1190,8 +1249,6 @@ pub const RNG = extern struct {
     d: u32,
     counter: u32,
 };
-
-pub const CFunction = fn (argc: i32, argv: [*]Janet) callconv(.C) Janet;
 
 test "refAllDecls" {
     testing.refAllDecls(@This());
@@ -1330,15 +1387,14 @@ test "struct" {
     var value: Janet = undefined;
     try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
     const st = try value.unwrapStruct();
-    const first_kv = st.get(keywordv("kw"));
-    const second_kv = st.get(symbolv("sym"));
-    const third_kv = st.get(wrapInteger(98));
-    const none_kv = st.get(wrapInteger(123));
+    const first_kv = st.get(keywordv("kw")).?;
+    const second_kv = st.get(symbolv("sym")).?;
+    const third_kv = st.get(wrapInteger(98)).?;
     try testing.expectEqual(@as(i32, 3), (try st.head()).length);
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
-    try testing.expectEqual(JanetType.nil, none_kv.janetType());
+    if (st.get(wrapInteger(123))) |v| return error.MustBeNull;
 }
 
 test "table" {
