@@ -16,12 +16,17 @@ You can:
 Why use these bindings:
 * You don't need to care about conversion between Zig and C. But you have full
   access to C internals if you need to.
-* Plenty of tests which are great examples.
-* Idiomatic Zig code.
+* Plenty of tests which are great examples and guarantee minimal regressions
+  when updating.
+* Idiomatic Zig code - everything is typed, names are properly cased,
+  operations on types use methods instead of prefixed global functions.
 
 # How to use
 
+TODO
+
 # Differences with C API
+
 ## Naming
 * `janet_` prefix is mostly not present.
 * Every type is a Zig struct and corresponding functions are called as
@@ -42,10 +47,16 @@ Why use these bindings:
   the length.
 * Abstracts are fully typed, no *void pointers to @ptrCast.
 
+# Completeness
+
+Bindings are not complete 100% but all the generally useful things are here.
+If you need any specific part of API, feel free to contribute or just
+ask (and you shall receive).
+
 # Q'n'A
 
 Q: What's with the name?  
-A: "Janet".replace("a", "zig")
+A: "janet".replace("a", "zig")
 
 Q: I hate that name.  
 A: Yes, I know.
