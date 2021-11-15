@@ -13,12 +13,6 @@ pub const c = @cImport({
     @cInclude("janet.h");
 });
 
-// Helper functions
-
-pub fn fromPtr(comptime ty: type, ptr: *c_void) ty {
-    return @ptrCast(ty, @alignCast(@alignOf(ty), ptr));
-}
-
 // Bindings
 
 pub fn init() !void {
