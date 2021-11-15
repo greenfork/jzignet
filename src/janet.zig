@@ -3,7 +3,7 @@ const testing = std.testing;
 
 // Configuration
 
-// TODO: check why this Janet implementation is broken here.
+// TODO: pass this option from the build system.
 pub const JANET_NO_NANBOX = false;
 
 pub const c = @cImport({
@@ -344,8 +344,9 @@ pub fn wrapAbstract(x: *c_void) Janet {
 pub fn wrapPointer(x: *c_void) Janet {
     return Janet.fromC(c.janet_wrap_pointer(x));
 }
+// janet_wrap_integer symbol is not present when compiling with JANET_NO_NANBOX.
 pub fn wrapInteger(n: i32) Janet {
-    return Janet.fromC(c.janet_wrap_integer(n));
+    return Janet.fromC(c.janet_wrap_number(@intToFloat(f64, n)));
 }
 
 pub fn cfuns(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
