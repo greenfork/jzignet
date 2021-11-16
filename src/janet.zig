@@ -30,30 +30,23 @@ pub fn coreEnv(replacements: ?*Table) *Table {
     }
 }
 
-pub fn doString(env: *Table, str: [:0]const u8, source_path: [:0]const u8, out: ?*Janet) !void {
-    return try doBytes(env, str, @intCast(i32, str.len), source_path, out);
+pub fn doString(env: *Table, str: []const u8, source_path: [:0]const u8, out: ?*Janet) !void {
+    return try doBytes(env, str, source_path, out);
 }
 
 pub fn doBytes(
     env: *Table,
-    bytes: [:0]const u8,
-    length: i32,
+    bytes: []const u8,
     source_path: [:0]const u8,
     out: ?*Janet,
 ) !void {
-    const errflags = blk: {
-        if (out) |o| {
-            break :blk c.janet_dobytes(
-                env.toC(),
-                bytes.ptr,
-                length,
-                source_path.ptr,
-                @ptrCast([*c]c.Janet, o),
-            );
-        } else {
-            break :blk c.janet_dobytes(env.toC(), bytes.ptr, length, source_path.ptr, null);
-        }
-    };
+    const errflags = c.janet_dobytes(
+        env.toC(),
+        bytes.ptr,
+        @intCast(i32, bytes.len),
+        source_path.ptr,
+        @ptrCast([*c]c.Janet, out),
+    );
     if (errflags == 0) {
         return;
     } else if ((errflags & 0x01) == 0x01) {
