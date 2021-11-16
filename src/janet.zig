@@ -15,11 +15,60 @@ pub const c = @cImport({
 
 // Bindings
 
+pub const Signal = enum(c_int) {
+    ok,
+    @"error",
+    debug,
+    yield,
+    user0,
+    user1,
+    user2,
+    user3,
+    user4,
+    user5,
+    user6,
+    user7,
+    user8,
+    user9,
+};
+
 pub fn init() !void {
     if (c.janet_init() != 0) return error.InitError;
 }
 pub fn deinit() void {
     c.janet_deinit();
+}
+pub fn @"continue"(fiber: *Fiber, in: Janet, out: *Janet) Signal {
+    return @ptrCast(*Signal, &c.janet_continue(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
+}
+pub fn continueSignal(fiber: *Fiber, in: Janet, out: *Janet, sig: Signal) Signal {
+    return @ptrCast(*Signal, &c.janet_continue_signal(
+        fiber.toC(),
+        in.toC(),
+        @ptrCast(*c.Janet, out),
+        @ptrCast(*const c.JanetSignal, &sig).*,
+    )).*;
+}
+pub fn pcall(fun: *Function, argn: i32, argv: [*]const Janet, out: *Janet, fiber: **Fiber) Signal {
+    return @ptrCast(*Signal, &c.janet_pcall(
+        fun.toC(),
+        argn,
+        Janet.toCPtr(argv),
+        @ptrCast(*c.Janet, out),
+        @ptrCast([*c][*c]c.JanetFiber, fiber),
+    )).*;
+}
+pub fn step(fiber: *Fiber, in: Janet, out: *Janet) Signal {
+    return @ptrCast(*Signal, &c.janet_step(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
+}
+pub fn call(fun: *Function, argc: i32, argv: [*]const Janet) Signal {
+    return @ptrCast(*Signal, &c.janet_call(fun.toC(), argc, Janet.toCPtr(argv))).*;
+}
+pub fn mcall(name: [:0]const u8, argc: i32, argv: [*]Janet) Signal {
+    return @ptrCast(*Signal, &c.janet_mcall(name.ptr, argc, @ptrCast([*c]c.Janet, argv))).*;
+}
+pub fn stackstrace(fiber: *Fiber, err: Janet) void {
+    c.janet_stacktrace(fiber.toC(), err.toC());
 }
 
 pub fn coreEnv(replacements: ?*Table) *Table {
@@ -54,11 +103,9 @@ pub fn cfunsPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) vo
 pub fn cfunsExtPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
     return c.janet_cfuns_ext_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
 }
-
 pub fn doString(env: *Table, str: []const u8, source_path: [:0]const u8, out: ?*Janet) !void {
     return try doBytes(env, str, source_path, out);
 }
-
 pub fn doBytes(
     env: *Table,
     bytes: []const u8,
@@ -84,6 +131,46 @@ pub fn doBytes(
         return error.UnexpectedError;
     }
     unreachable;
+}
+
+pub const TryState = extern struct {
+    stackn: i32,
+    gc_handle: c_int,
+    vm_fiber: *Fiber,
+    vm_jmp_buf: *c.jmp_buf,
+    vm_return_reg: *Janet,
+    buf: c.jmp_buf,
+    payload: Janet,
+
+    pub fn toC(self: *TryState) *c.JanetTryState {
+        return @ptrCast(*c.JanetTryState, self);
+    }
+};
+
+pub fn tryInit(state: *TryState) void {
+    c.janet_try_init(state.toC());
+}
+pub fn @"try"(state: *TryState) Signal {
+    tryInit(state);
+    if (std.builtin.target.os.tag.isDarwin() or
+        std.builtin.target.os.tag == .freebsd or
+        std.builtin.target.os.tag == .openbsd or
+        std.builtin.target.os.tag == .netbsd or
+        std.builtin.target.os.tag == .dragonfly)
+    {
+        return @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
+    } else {
+        return @ptrCast(*Signal, &c.setjmp(&state.buf)).*;
+    }
+}
+pub fn restore(state: *TryState) void {
+    c.janet_restore(state.toC());
+}
+pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
+    return c.janet_sorted_keys(@ptrCast([*c]const c.JanetKV, dict), cap, index_buffer);
+}
+pub fn wrapNumberSafe(x: f64) Janet {
+    return Janet.fromC(c.janet_wrap_number_safe(x));
 }
 
 pub fn keywordv(str: []const u8) Janet {
@@ -724,6 +811,41 @@ const JanetMixin = struct {
     }
     pub fn janetType(janet: Janet) JanetType {
         return @ptrCast(*JanetType, &c.janet_type(janet.toC())).*;
+    }
+
+    pub fn in(ds: Janet, key: Janet) Janet {
+        return Janet.fromC(c.janet_in(ds.toC(), key.toC()));
+    }
+    pub fn get(ds: Janet, key: Janet) Janet {
+        return Janet.fromC(c.janet_get(ds.toC(), key.toC()));
+    }
+    pub fn next(ds: Janet, key: Janet) Janet {
+        return Janet.fromC(c.janet_next(ds.toC(), key.toC()));
+    }
+    pub fn getIndex(ds: Janet, index: i32) Janet {
+        return Janet.fromC(c.janet_getindex(ds.toC(), index));
+    }
+    pub fn length(x: Janet) i32 {
+        return c.janet_length(x.toC());
+    }
+    pub fn lengthv(x: Janet) Janet {
+        return fromC(c.janet_lengthv(x.toC()));
+    }
+    pub fn put(ds: Janet, key: Janet, value: Janet) void {
+        c.janet_put(ds.toC(), key.toC(), value.toC());
+    }
+    pub fn putIndex(ds: Janet, index: i32, value: Janet) void {
+        c.janet_putindex(ds.toC(), index, value.toC());
+    }
+
+    pub fn equals(x: Janet, y: Janet) bool {
+        return c.janet_equals(x.toC(), y.toC()) > 0;
+    }
+    pub fn hash(x: Janet) i32 {
+        return c.janet_hash(x.toC());
+    }
+    pub fn compare(x: Janet, y: Janet) c_int {
+        return c.janet_compare(x.toC(), y.toC());
     }
 };
 
