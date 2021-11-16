@@ -23,11 +23,36 @@ pub fn deinit() void {
 }
 
 pub fn coreEnv(replacements: ?*Table) *Table {
-    if (replacements) |r| {
-        return Table.fromC(c.janet_core_env(r.toC()));
+    return Table.fromC(c.janet_core_env(@ptrCast([*c]c.JanetTable, replacements)));
+}
+pub fn coreLookupTable(replacements: ?*Table) *Table {
+    return Table.fromC(c.janet_core_lookup_table(@ptrCast([*c]c.JanetTable, replacements)));
+}
+pub fn def(env: *Table, name: [:0]const u8, val: Janet, documentation: ?[:0]const u8) void {
+    if (documentation) |docs| {
+        c.janet_def(env.toC(), name.ptr, val.toC(), docs.ptr);
     } else {
-        return Table.fromC(c.janet_core_env(null));
+        c.janet_def(env.toC(), name.ptr, val.toC(), null);
     }
+}
+pub fn @"var"(env: *Table, name: [:0]const u8, val: Janet, documentation: ?[:0]const u8) void {
+    if (documentation) |docs| {
+        c.janet_var(env.toC(), name.ptr, val.toC(), docs.ptr);
+    } else {
+        c.janet_var(env.toC(), name.ptr, val.toC(), null);
+    }
+}
+pub fn cfuns(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
+    return c.janet_cfuns(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
+}
+pub fn cfunsExt(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
+    return c.janet_cfuns_ext(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
+}
+pub fn cfunsPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
+    return c.janet_cfuns_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
+}
+pub fn cfunsExtPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
+    return c.janet_cfuns_ext_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
 }
 
 pub fn doString(env: *Table, str: []const u8, source_path: [:0]const u8, out: ?*Janet) !void {
@@ -340,19 +365,6 @@ pub fn wrapPointer(x: *c_void) Janet {
 // janet_wrap_integer symbol is not present when compiling with JANET_NO_NANBOX.
 pub fn wrapInteger(n: i32) Janet {
     return Janet.fromC(c.janet_wrap_number(@intToFloat(f64, n)));
-}
-
-pub fn cfuns(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
-    return c.janet_cfuns(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
-}
-pub fn cfunsExt(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
-    return c.janet_cfuns_ext(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
-}
-pub fn cfunsPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
-    return c.janet_cfuns_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
-}
-pub fn cfunsExtPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
-    return c.janet_cfuns_ext_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
 }
 
 pub fn mark(x: Janet) void {
@@ -1717,7 +1729,7 @@ const zig_struct_cfuns = [_]Reg{
     Reg.empty,
 };
 
-test "abstract" {
+test "abstract initialized inside Janet" {
     try init();
     defer deinit();
     var env = coreEnv(null);
@@ -1732,6 +1744,21 @@ test "abstract" {
     try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
     try doString(env, "(zig/inc st 5)", "main", null);
     try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+}
+
+test "abstract injected from Zig" {
+    try init();
+    defer deinit();
+    var env = coreEnv(null);
+    cfunsPrefix(env, "zig", &zig_struct_cfuns);
+    var st_abstract = abstract(ZigStruct, &zig_struct_abstract_type);
+    st_abstract.ptr.* = ZigStruct{ .counter = 2 };
+    def(env, "st", st_abstract.wrap(), null);
+    try doString(env, "(assert (= (zig/get-counter st) 2))", "main", null);
+    st_abstract.ptr.counter = 1;
+    try doString(env, "(assert (= (zig/get-counter st) 1))", "main", null);
+    try doString(env, "(zig/dec st)", "main", null);
+    try testing.expectEqual(@as(u32, 0), st_abstract.ptr.counter);
 }
 
 // We need an allocator to pass to the Zig struct.
