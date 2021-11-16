@@ -1625,18 +1625,36 @@ test "struct" {
 test "table" {
     try init();
     defer deinit();
-    const env = coreEnv(null);
-    var value: Janet = undefined;
-    try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
-    const table = try value.unwrapTable();
-    const first_kv = table.get(keywordv("kw")).?;
-    const second_kv = table.get(symbolv("sym")).?;
-    const third_kv = table.get(wrapInteger(98)).?;
-    try testing.expectEqual(@as(i32, 3), table.count);
-    try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
-    try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
-    try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
-    if (table.get(wrapInteger(123))) |v| return error.MustBeNull;
+    {
+        const env = coreEnv(null);
+        var value: Janet = undefined;
+        try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+        const table = try value.unwrapTable();
+        const first_kv = table.get(keywordv("kw")).?;
+        const second_kv = table.get(symbolv("sym")).?;
+        const third_kv = table.get(wrapInteger(98)).?;
+        try testing.expectEqual(@as(i32, 3), table.count);
+        try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
+        try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
+        try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
+        if (table.get(wrapInteger(123))) |_| return error.MustBeNull;
+    }
+    {
+        var table = Table.initDynamic(5);
+        table.put(keywordv("apples"), wrapInteger(2));
+        table.put(keywordv("oranges"), wrapInteger(8));
+        table.put(keywordv("peaches"), wrapInteger(1));
+        const apples = table.get(keywordv("apples")).?;
+        try testing.expectEqual(@as(i32, 2), try apples.unwrapInteger());
+        var which_table: *Table = undefined;
+        const oranges = table.getEx(keywordv("oranges"), &which_table).?;
+        try testing.expectEqual(@as(i32, 8), try oranges.unwrapInteger());
+        try testing.expectEqual(table, which_table);
+        const peaches = table.rawGet(keywordv("peaches")).?;
+        try testing.expectEqual(@as(i32, 1), try peaches.unwrapInteger());
+        _ = table.remove(keywordv("peaches"));
+        if (table.get(keywordv("peaches"))) |_| return error.MustBeNull;
+    }
 }
 
 const ZigStruct = struct {
