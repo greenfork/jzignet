@@ -484,6 +484,23 @@ pub fn calloc(nmemb: usize, size: usize) ?*c_void {
 pub fn free(ptr: *c_void) void {
     c.janet_free(ptr);
 }
+pub const ScratchFinalizer = fn (ptr: *c_void) callconv(.C) void;
+pub const ScratchFinalizerC = fn (ptr: ?*c_void) callconv(.C) void;
+pub fn smalloc(size: usize) ?*c_void {
+    return c.janet_smalloc(size);
+}
+pub fn srealloc(ptr: *c_void, size: usize) ?*c_void {
+    return c.janet_srealloc(ptr, size);
+}
+pub fn scalloc(nmemb: usize, size: usize) ?*c_void {
+    return c.janet_scalloc(nmemb, size);
+}
+pub fn sfinalizer(ptr: *c_void, finalizer: ScratchFinalizer) void {
+    return c.janet_sfinalizer(ptr, @ptrCast(ScratchFinalizerC, finalizer));
+}
+pub fn sfree(ptr: *c_void) void {
+    c.janet_sfree(ptr);
+}
 
 pub fn indexedView(seq: Janet, data: *[*]const Janet, len: *i32) !void {
     const rs = c.janet_indexed_view(seq.toC(), @ptrCast([*c][*c]const c.Janet, data), len);
