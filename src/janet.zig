@@ -199,12 +199,13 @@ pub fn abstract(
         c.janet_abstract(at.toC(), @sizeOf(value_type)) orelse unreachable,
     );
 }
-
 pub fn symbolGen() Symbol {
     return Symbol.fromC(c.janet_symbol_gen());
 }
 
-pub fn panic(message: [:0]const u8) noreturn {
+// This function has to be something other that `panic` because Zig expects it
+// to be a specific function at root.
+pub fn jpanic(message: [:0]const u8) noreturn {
     c.janet_panic(message.ptr);
 }
 pub fn printf(message: [:0]const u8) void {
@@ -1848,7 +1849,7 @@ fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixarity(argc, 1);
     var st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
     st_abstract.ptr.dec() catch {
-        panic("expected failure, part of the test");
+        jpanic("expected failure, part of the test");
     };
     return wrapNil();
 }
@@ -1946,7 +1947,7 @@ fn czsGcMark(st: *ComplexZigStruct, len: usize) callconv(.C) c_int {
 }
 fn czsGet(st: *ComplexZigStruct, key: Janet, out: *Janet) callconv(.C) c_int {
     const k = key.unwrapKeyword() catch {
-        panic("Not a keyword");
+        jpanic("Not a keyword");
     };
     if (st.storage.get(k.slice)) |value| {
         out.* = value;
@@ -1957,7 +1958,7 @@ fn czsGet(st: *ComplexZigStruct, key: Janet, out: *Janet) callconv(.C) c_int {
 }
 fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
     const k = key.unwrapKeyword() catch {
-        panic("Not a keyword");
+        jpanic("Not a keyword");
     };
     // HACK: allocating the key to be stored in our struct's `storage` via Janet's allocation
     // function which is never freed. I'm too lazy to implement allocating and deallocating of
@@ -1968,7 +1969,7 @@ fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
     )[0..k.slice.len];
     std.mem.copy(u8, allocated_key, k.slice);
     st.storage.put(allocated_key, value) catch {
-        panic("Out of memory");
+        jpanic("Out of memory");
     };
 }
 // We only marshal the counter, the `storage` is lost, as well as allocator.
@@ -2017,7 +2018,7 @@ fn czsNext(st: *ComplexZigStruct, key: Janet) callconv(.C) Janet {
         }
     } else {
         const str_key = key.unwrapKeyword() catch {
-            panic("Not a keyword");
+            jpanic("Not a keyword");
         };
         var it = st.storage.keyIterator();
         while (it.next()) |k| {
