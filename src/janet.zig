@@ -625,6 +625,21 @@ pub fn dictionaryNext(kvs: [*]const KV, cap: i32, kv: *const KV) ?*const KV {
     ));
 }
 
+pub const BuildConfig = extern struct {
+    major: c_uint,
+    minor: c_uint,
+    patch: c_uint,
+    bits: c_uint,
+};
+pub fn configCurrent() BuildConfig {
+    return BuildConfig{
+        .major = c.JANET_VERSION_MAJOR,
+        .minor = c.JANET_VERSION_MINOR,
+        .patch = c.JANET_VERSION_PATCH,
+        .bits = c.JANET_CURRENT_CONFIG_BITS,
+    };
+}
+
 const JanetType = enum(c_int) {
     number,
     nil,
