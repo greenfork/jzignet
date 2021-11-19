@@ -50,7 +50,7 @@ export fn _janet_mod_config() BuildConfig {
 }
 
 export fn _janet_init(env: *Table) void {
-    cfuns(env, "mylib", &cfuns_zig);
+    cfuns(env, "zig_module", &cfuns_zig);
 }
 
 test "refAllDecls" {

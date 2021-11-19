@@ -22,15 +22,19 @@ pub fn build(b: *std.build.Builder) !void {
     janet_lib.linkLibC();
     janet_lib.setBuildMode(mode);
 
-    const lib = b.addStaticLibrary("zig_module", "src/main.zig");
-    lib.setBuildMode(mode);
+    const static_lib = b.addStaticLibrary("zig_module", "src/main.zig");
+    static_lib.setBuildMode(mode);
+    static_lib.linkLibrary(janet_lib);
+    static_lib.addPackage(.{ .name = "jzignet", .path = "../../src/janet.zig" });
+    static_lib.addIncludeDir("../../c");
+    static_lib.install();
 
-    // Link library to your library.
-    lib.linkLibrary(janet_lib);
-    lib.addPackage(.{ .name = "jzignet", .path = "../../src/janet.zig" });
-    lib.addIncludeDir("../../c");
-
-    lib.install();
+    const dynamic_lib = b.addSharedLibrary("zig_module", "src/main.zig", .unversioned);
+    dynamic_lib.setBuildMode(mode);
+    dynamic_lib.linkLibrary(janet_lib);
+    dynamic_lib.addPackage(.{ .name = "jzignet", .path = "../../src/janet.zig" });
+    dynamic_lib.addIncludeDir("../../c");
+    dynamic_lib.install();
 
     var main_tests = b.addTest("src/main.zig");
     main_tests.setBuildMode(mode);
