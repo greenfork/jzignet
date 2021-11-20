@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const testing = std.testing;
 
 // Configuration
@@ -152,11 +153,11 @@ pub fn tryInit(state: *TryState) void {
 }
 pub fn @"try"(state: *TryState) Signal {
     tryInit(state);
-    if (std.builtin.target.os.tag.isDarwin() or
-        std.builtin.target.os.tag == .freebsd or
-        std.builtin.target.os.tag == .openbsd or
-        std.builtin.target.os.tag == .netbsd or
-        std.builtin.target.os.tag == .dragonfly)
+    if (builtin.target.os.tag.isDarwin() or
+        builtin.target.os.tag == .freebsd or
+        builtin.target.os.tag == .openbsd or
+        builtin.target.os.tag == .netbsd or
+        builtin.target.os.tag == .dragonfly)
     {
         return @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
     } else {
@@ -685,8 +686,8 @@ pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE |
 
 pub const Janet = blk: {
     if (JANET_NO_NANBOX or
-        std.builtin.target.cpu.arch.isARM() or
-        std.builtin.target.cpu.arch == .aarch64)
+        builtin.target.cpu.arch.isARM() or
+        builtin.target.cpu.arch == .aarch64)
     {
         break :blk extern struct {
             as: extern union {
@@ -700,7 +701,7 @@ pub const Janet = blk: {
 
             pub usingnamespace JanetMixin;
         };
-    } else if (std.builtin.target.cpu.arch == .x86_64) {
+    } else if (builtin.target.cpu.arch == .x86_64) {
         break :blk extern union {
             @"u64": u64,
             @"i64": i64,
@@ -709,7 +710,7 @@ pub const Janet = blk: {
 
             pub usingnamespace JanetMixin;
         };
-    } else if (std.builtin.target.cpu.arch.endianess() == .Big) {
+    } else if (builtin.target.cpu.arch.endianess() == .Big) {
         break :blk extern union {
             tagged: extern struct {
                 @"type": u32,
@@ -723,7 +724,7 @@ pub const Janet = blk: {
 
             pub usingnamespace JanetMixin;
         };
-    } else if (std.builtin.target.cpu.arch.endianess() == .Little) {
+    } else if (builtin.target.cpu.arch.endianess() == .Little) {
         break :blk extern union {
             tagged: extern struct {
                 payload: extern union {
@@ -1400,7 +1401,7 @@ pub const Fiber = extern struct {
         ));
     }
     pub fn status(self: *Fiber) Status {
-        return @intToEnum(FiberStatus, c.janet_fiber_status(self.toC()));
+        return @intToEnum(Status, c.janet_fiber_status(self.toC()));
     }
     pub fn currentFiber() *Fiber {
         return fromC(c.janet_current_fiber());
@@ -1415,7 +1416,7 @@ pub const Fiber = extern struct {
 };
 
 pub const ListenerState = blk: {
-    if (std.builtin.target.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         break :blk extern struct {
             machine: Listener,
             fiber: *Fiber,
@@ -1438,7 +1439,7 @@ pub const ListenerState = blk: {
 };
 
 pub const Handle = blk: {
-    if (std.builtin.target.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         break :blk *c_void;
     } else {
         break :blk c_int;
@@ -1446,7 +1447,7 @@ pub const Handle = blk: {
 };
 
 pub const HANDLE_NONE: Handle = blk: {
-    if (std.builtin.target.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         break :blk null;
     } else {
         break :blk -1;
@@ -1786,7 +1787,7 @@ test "struct" {
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
-    if (st.get(wrapInteger(123))) |v| return error.MustBeNull;
+    if (st.get(wrapInteger(123))) |_| return error.MustBeNull;
 }
 
 test "table" {
@@ -1921,6 +1922,7 @@ const AllyAbstractType = Abstract(*std.mem.Allocator).Type{ .name = "zig-allocat
 
 /// Initializer to make Zig's allocator into existence.
 fn cfunInitZigAllocator(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
+    _ = argv;
     fixarity(argc, 0);
     const ally_abstract = abstract(*std.mem.Allocator, &AllyAbstractType);
     // This will have to be a global definition of an allocator, otherwise it is impossible
