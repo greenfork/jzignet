@@ -7,12 +7,7 @@ pub fn build(b: *std.build.Builder) void {
     var ally = b.allocator;
     const janet_lib = b.addStaticLibrary("janet", null);
     var janet_flags = std.ArrayList([]const u8).init(ally);
-    janet_flags.appendSlice(&[_][]const u8{
-        "-std=c99",
-        "-Wall",
-        "-Wextra",
-        "-fvisibility=hidden",
-    }) catch unreachable;
+    janet_flags.appendSlice(&[_][]const u8{"-std=c99"}) catch unreachable;
     if (mode != .Debug) {
         janet_flags.appendSlice(&[_][]const u8{ "-O2", "-flto" }) catch unreachable;
     }
