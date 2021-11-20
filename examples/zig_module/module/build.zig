@@ -16,6 +16,8 @@ pub fn build(b: *std.build.Builder) void {
     janet_lib.setBuildMode(mode);
 
     const static_lib = b.addStaticLibrary("zig_module", "src/main.zig");
+    // This is necessary because by default it is not included in static library builds.
+    static_lib.bundle_compiler_rt = true;
     static_lib.setBuildMode(mode);
     static_lib.linkLibrary(janet_lib);
     static_lib.addPackagePath("jzignet", "../../../src/janet.zig");

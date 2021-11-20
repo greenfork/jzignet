@@ -99,6 +99,14 @@ export fn _janet_init(env: *j.Table) void {
     j.cfuns(env, "zig_module", &cfuns_zig);
 }
 
+// This function must mirror the `_janet_init` and it is used by static compilation.
+// The name must be exactly as specified in `project.janet`:
+// `:static-entry "janet_module_entry_zig_module"`.
+export fn janet_module_entry_zig_module(env: *j.Table) void {
+    // Import previously defined Zig functions into `env`.
+    j.cfuns(env, "zig_module", &cfuns_zig);
+}
+
 // Testing
 //=========
 

@@ -1,6 +1,9 @@
 # Example: Janet module in Zig
 
 This is a bit ugly but it works. Requires Zig version of at least 2021-11-20.
+You can download the latest Zig build from <https://ziglang.org/download/>. You
+will also need Janet installed on your system
+<https://github.com/janet-lang/janet/releases>.
 
 This example consists of two parts:
 1. Janet module which is written in Zig.
@@ -54,4 +57,11 @@ $ jpm -l janet
 (add st 5)              #=> nil
 (get-counter st)        #=> 6
 Ctrl-D
+```
+
+9. Or compile into static binary
+```shell
+$ jpm -l clean
+$ jpm -l build
+$ ./build/janet_exec
 ```
