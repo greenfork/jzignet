@@ -1,4 +1,4 @@
-# Jzignet - Janet wrapper for Zig
+# Jzignet
 
 [Zig](https://ziglang.org/) is a general-purpose programming language and
 toolchain for maintaining robust, optimal, and reusable software.
@@ -95,10 +95,12 @@ ask (and you shall receive).
 
 ## Q'n'A
 
-Q: What's with the name?  
+Q: What's with the name?
+
 A: "janet".replace("a", "zig")
 
-Q: I hate that name.  
+Q: I hate that name.
+
 A: Yes, I know.
 
 ## License
