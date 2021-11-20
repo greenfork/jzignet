@@ -1,8 +1,8 @@
 # Example: Embed Janet into Zig
 
-If you don't have Zig installed, you can download it from official Zig
+If you don't have Zig installed, you can download it from the official Zig
 website <https://ziglang.org/download/>. You don't need Janet installed,
-Janet is built into this wrapper.
+Janet is built into this library.
 
 How to run:
 ```shell
