@@ -1182,16 +1182,15 @@ pub const Table = extern struct {
     pub fn toC(table: *Table) *c.JanetTable {
         return @ptrCast(*c.JanetTable, table);
     }
-
     pub fn fromC(janet_table: *c.JanetTable) *Table {
         return @ptrCast(*Table, janet_table);
     }
 
-    // Function janet_table
+    /// C function: janet_table
     pub fn initDynamic(capacity: i32) *Table {
         return fromC(c.janet_table(capacity));
     }
-    // Function janet_table_init
+    /// C function: janet_table_init
     pub fn init(table: *Table, capacity: i32) *Table {
         return fromC(c.janet_table_init(table.toC(), capacity));
     }
