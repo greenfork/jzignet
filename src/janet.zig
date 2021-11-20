@@ -1177,7 +1177,7 @@ pub const Table = extern struct {
     capacity: i32,
     deleted: i32,
     data: *KV,
-    proto: *Table,
+    proto: ?*Table,
 
     pub fn toC(table: *Table) *c.JanetTable {
         return @ptrCast(*c.JanetTable, table);
