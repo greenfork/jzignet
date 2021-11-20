@@ -3,4 +3,7 @@ zig-out/
 
 .ccls-cache/
 
-/me.c
+# Test files
+me.c
+me.h
+a.out

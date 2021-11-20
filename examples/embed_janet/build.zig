@@ -6,9 +6,7 @@ pub fn build(b: *std.build.Builder) !void {
     const mode = b.standardReleaseOptions();
 
     // Add the library to the compilation unit but specify correct paths.
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    var ally = &arena.allocator;
+    var ally = b.allocator;
     var janet_flags = std.ArrayList([]const u8).init(ally);
     try janet_flags.appendSlice(&[_][]const u8{
         "-std=c99",

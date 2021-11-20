@@ -1,9 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.build.Builder) !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    var ally = &arena.allocator;
+    var ally = b.allocator;
 
     const mode = b.standardReleaseOptions();
     const no_nanbox = b.option(bool, "no_nanbox", "Do not use nanbox implementation of Janet (default false)") orelse false;
