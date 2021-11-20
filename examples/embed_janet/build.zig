@@ -1,21 +1,20 @@
 const std = @import("std");
 
-// Don't forget the !
-pub fn build(b: *std.build.Builder) !void {
+pub fn build(b: *std.build.Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
     // Add the library to the compilation unit but specify correct paths.
     var ally = b.allocator;
     var janet_flags = std.ArrayList([]const u8).init(ally);
-    try janet_flags.appendSlice(&[_][]const u8{
+    janet_flags.appendSlice(&[_][]const u8{
         "-std=c99",
         "-Wall",
         "-Wextra",
         "-fvisibility=hidden",
-    });
+    }) catch unreachable;
     if (mode != .Debug) {
-        try janet_flags.appendSlice(&[_][]const u8{ "-O2", "-flto" });
+        janet_flags.appendSlice(&[_][]const u8{ "-O2", "-flto" }) catch unreachable;
     }
     const janet = b.addStaticLibrary("janet", null);
     janet.addCSourceFile("../../c/janet.c", janet_flags.items);
@@ -29,7 +28,7 @@ pub fn build(b: *std.build.Builder) !void {
     // Add the library to your exe file.
     exe.linkLibC();
     exe.linkLibrary(janet);
-    exe.addPackage(.{ .name = "jzignet", .path = "../../src/janet.zig" });
+    exe.addPackagePath("jzignet", "../../src/janet.zig");
     exe.addIncludeDir("../../c");
 
     exe.install();

@@ -10,7 +10,7 @@ Jzignet - Zig library which allows to embed Janet programs into Zig programs.
 
 You can:
 * Embed Janet programs into Zig
-* Write Janet modules in Zig (in progress)
+* Write Janet modules in Zig
 * Write bindings in Zig for a C library to be used as a Janet module (in progress)
 
 Why use these bindings:
