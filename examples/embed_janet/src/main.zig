@@ -1,6 +1,12 @@
 const std = @import("std");
 const j = @import("jzignet");
 
+comptime {
+    const current_version = std.SemanticVersion.parse("0.8.1") catch unreachable;
+    const comparison = @import("builtin").zig_version.order(current_version);
+    if (comparison == .lt) @compileError("Zig version must be at least 0.8.1");
+}
+
 fn cfunAddNumbers(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     j.fixarity(argc, 2);
     const n1 = j.getNumber(argv, 0);

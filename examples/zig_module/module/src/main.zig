@@ -1,6 +1,11 @@
 const std = @import("std");
-const testing = std.testing;
 const j = @import("jzignet");
+
+comptime {
+    const current_version = std.SemanticVersion.parse("0.9.0-dev.1678+7747bf07c") catch unreachable;
+    const comparison = @import("builtin").zig_version.order(current_version);
+    if (comparison == .lt) @compileError("Zig version must be at least as of 2021-11-18");
+}
 
 // Source Zig code
 
@@ -55,5 +60,5 @@ export fn _janet_init(env: *j.Table) void {
 }
 
 test "refAllDecls" {
-    testing.refAllDecls(@This());
+    std.testing.refAllDecls(@This());
 }
