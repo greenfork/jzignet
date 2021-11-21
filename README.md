@@ -31,6 +31,9 @@ Currently supported versions:
 * Zig master for embedding and writing modules in Zig
 * Janet 1.18.1 for embedding and consuming modules in Zig
 
+Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
+and at [GitHub](https://github.com/greenfork/jzignet).
+
 ## How to use
 
 If you want to just start using it, jump to the examples. Copy them or look
