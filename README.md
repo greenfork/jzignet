@@ -26,6 +26,11 @@ wonderful languages:
 * Idiomatic Zig code - everything is typed, names are properly cased,
   operations on types use methods instead of prefixed global functions.
 
+Currently supported versions:
+* Zig 0.8.1 for embedding
+* Zig master for embedding and writing modules in Zig
+* Janet 1.18.1 for embedding and consuming modules in Zig
+
 ## How to use
 
 If you want to just start using it, jump to the examples. Copy them or look
