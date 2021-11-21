@@ -47,6 +47,8 @@ The build steps are as follows:
 7. Run the Janet source code
    ```shell
    $ jpm -l janet src/main.janet
+   1
+   6
    ```
 
 8. Or from the shell
@@ -66,4 +68,6 @@ The build steps are as follows:
    $ jpm -l clean
    $ jpm -l build
    $ ./build/janet_exec
+   1
+   6
    ```
