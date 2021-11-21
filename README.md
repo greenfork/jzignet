@@ -43,6 +43,11 @@ file.
 * [Embed Janet into Zig](examples/embed_janet)
 * [Write Janet module in Zig](examples/zig_module)
 
+Write bindings in Zig for a C library to be used as a Janet module - this
+is very close to "Write Janet module in Zig" example, you just need to
+know how to wrap a C library in Zig, this repository is a perfect example
+for this.
+
 Currently you can include jzignet as a git submodule. Janet is bundled as
 a single C source amalgamation file and is compiled directly into this
 library.
