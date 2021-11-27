@@ -141,9 +141,6 @@ pub const TryState = extern struct {
 pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
     return c.janet_sorted_keys(@ptrCast([*c]const c.JanetKV, dict), cap, index_buffer);
 }
-pub fn wrapNumberSafe(x: f64) Janet {
-    return Janet.fromC(c.janet_wrap_number_safe(x));
-}
 
 pub fn panic(message: [:0]const u8) noreturn {
     c.janet_panic(message.ptr);
@@ -758,6 +755,9 @@ const JanetMixin = struct {
     }
     pub fn string(str: []const u8) Janet {
         return Janet.fromC(c.janet_stringv(str.ptr, @intCast(i32, str.len)));
+    }
+    pub fn numberSafe(x: f64) Janet {
+        return Janet.fromC(c.janet_wrap_number_safe(x));
     }
     pub fn wrap(comptime T: type, value: T) Janet {
         return switch (T) {

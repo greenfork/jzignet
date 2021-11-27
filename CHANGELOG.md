@@ -17,6 +17,7 @@
     these structures, for example `wrapTable` is moved into `Table.wrap()`
   * All the named wrap functions are moved into `Janet` with a signature
     `wrap(comptime T: type, value: T)` so you can use it like `Janet.wrap(i32, 3)`
+  * `wrapNumberSafe` moved into `Janet.numberSafe`
 * `string` function and corresponding for keyword and symbol are moved into
   their data structures into functions `init`
 * `stringv` function and corresponding for keyword and symbol are moved into
