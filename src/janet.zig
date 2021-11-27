@@ -43,68 +43,6 @@ pub fn mcall(name: [:0]const u8, argc: i32, argv: [*]Janet) Signal {
     return @ptrCast(*Signal, &c.janet_mcall(name.ptr, argc, @ptrCast([*c]c.Janet, argv))).*;
 }
 
-pub fn coreEnv(replacements: ?*Table) *Table {
-    return Table.fromC(c.janet_core_env(@ptrCast([*c]c.JanetTable, replacements)));
-}
-pub fn coreLookupTable(replacements: ?*Table) *Table {
-    return Table.fromC(c.janet_core_lookup_table(@ptrCast([*c]c.JanetTable, replacements)));
-}
-pub fn def(env: *Table, name: [:0]const u8, val: Janet, documentation: ?[:0]const u8) void {
-    if (documentation) |docs| {
-        c.janet_def(env.toC(), name.ptr, val.toC(), docs.ptr);
-    } else {
-        c.janet_def(env.toC(), name.ptr, val.toC(), null);
-    }
-}
-pub fn @"var"(env: *Table, name: [:0]const u8, val: Janet, documentation: ?[:0]const u8) void {
-    if (documentation) |docs| {
-        c.janet_var(env.toC(), name.ptr, val.toC(), docs.ptr);
-    } else {
-        c.janet_var(env.toC(), name.ptr, val.toC(), null);
-    }
-}
-pub fn cfuns(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
-    return c.janet_cfuns(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
-}
-pub fn cfunsExt(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
-    return c.janet_cfuns_ext(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
-}
-pub fn cfunsPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
-    return c.janet_cfuns_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
-}
-pub fn cfunsExtPrefix(env: *Table, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
-    return c.janet_cfuns_ext_prefix(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetRegExt, funs));
-}
-pub fn doString(env: *Table, str: []const u8, source_path: [:0]const u8, out: ?*Janet) !void {
-    return try doBytes(env, str, source_path, out);
-}
-pub fn doBytes(
-    env: *Table,
-    bytes: []const u8,
-    source_path: [:0]const u8,
-    out: ?*Janet,
-) !void {
-    const errflags = c.janet_dobytes(
-        env.toC(),
-        bytes.ptr,
-        @intCast(i32, bytes.len),
-        source_path.ptr,
-        @ptrCast([*c]c.Janet, out),
-    );
-    if (errflags == 0) {
-        return;
-    } else if ((errflags & 0x01) == 0x01) {
-        return error.RuntimeError;
-    } else if ((errflags & 0x02) == 0x02) {
-        return error.CompileError;
-    } else if ((errflags & 0x04) == 0x04) {
-        return error.ParseError;
-    } else {
-        return error.UnexpectedError;
-    }
-    unreachable;
-}
-
 pub const TryState = extern struct {
     stackn: i32,
     gc_handle: c_int,
@@ -365,10 +303,10 @@ pub fn gcPressure(s: usize) void {
 }
 
 pub const MARSHAL_UNSAFE = c.JANET_MARSHAL_UNSAFE;
-pub fn marshal(buf: *Buffer, x: Janet, rreg: *Table, flags: c_int) void {
+pub fn marshal(buf: *Buffer, x: Janet, rreg: *Environment, flags: c_int) void {
     c.janet_marshal(buf.toC(), x.toC(), rreg.toC(), flags);
 }
-pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Table, next: [*]*const u8) Janet {
+pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Environment, next: [*]*const u8) Janet {
     return Janet.fromC(c.janet_unmarshal(
         bytes.ptr,
         bytes.len,
@@ -376,12 +314,6 @@ pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Table, next: [*]*const u
         reg.toC(),
         @ptrCast([*c][*c]const u8, next),
     ));
-}
-pub fn envLookup(env: *Table) *Table {
-    return Table.fromC(c.janet_env_lookup(env.toC()));
-}
-pub fn envLookupInto(renv: *Table, env: *Table, prefix: [:0]const u8, recurse: c_int) void {
-    c.janet_env_lookup_into(renv.toC(), env.toC(), prefix.ptr, recurse);
 }
 pub fn marshalSize(ctx: *MarshalContext, value: usize) void {
     c.janet_marshal_size(ctx.toC(), value);
@@ -1199,6 +1131,139 @@ pub const Table = extern struct {
     pub fn wrap(self: *Table) Janet {
         return Janet.fromC(c.janet_wrap_table(self.toC()));
     }
+    pub fn fromEnvironment(env: *Environment) *Table {
+        return @ptrCast(*Table, env);
+    }
+    pub fn toEnvironment(table: *Table) *Environment {
+        return @ptrCast(*Environment, table);
+    }
+};
+
+/// Inner structure is identical to `Table`. But this is a different concept from Table, the
+/// data structure. It allows to run code, define values and other things. Can be converted
+/// to or from Table.
+pub const Environment = extern struct {
+    gc: GCObject,
+    count: i32,
+    capacity: i32,
+    deleted: i32,
+    data: *KV,
+    proto: ?*Environment,
+
+    pub fn toC(table: *Environment) *c.JanetTable {
+        return @ptrCast(*c.JanetTable, table);
+    }
+    pub fn fromC(janet_table: *c.JanetTable) *Environment {
+        return @ptrCast(*Environment, janet_table);
+    }
+    pub fn toTable(env: *Environment) *Table {
+        return @ptrCast(*Table, env);
+    }
+    pub fn fromTable(table: *Table) *Environment {
+        return @ptrCast(*Environment, table);
+    }
+
+    pub fn coreEnv(replacements: ?*Environment) *Environment {
+        return Environment.fromC(c.janet_core_env(@ptrCast([*c]c.JanetTable, replacements)));
+    }
+    pub fn coreLookupTable(replacements: ?*Environment) *Environment {
+        return Environment.fromC(
+            c.janet_core_lookup_table(@ptrCast([*c]c.JanetTable, replacements)),
+        );
+    }
+    pub fn def(
+        env: *Environment,
+        name: [:0]const u8,
+        val: Janet,
+        documentation: ?[:0]const u8,
+    ) void {
+        if (documentation) |docs| {
+            c.janet_def(env.toC(), name.ptr, val.toC(), docs.ptr);
+        } else {
+            c.janet_def(env.toC(), name.ptr, val.toC(), null);
+        }
+    }
+    pub fn @"var"(
+        env: *Environment,
+        name: [:0]const u8,
+        val: Janet,
+        documentation: ?[:0]const u8,
+    ) void {
+        if (documentation) |docs| {
+            c.janet_var(env.toC(), name.ptr, val.toC(), docs.ptr);
+        } else {
+            c.janet_var(env.toC(), name.ptr, val.toC(), null);
+        }
+    }
+    pub fn cfuns(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
+        return c.janet_cfuns(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
+    }
+    pub fn cfunsExt(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
+        return c.janet_cfuns_ext(
+            env.toC(),
+            reg_prefix.ptr,
+            @ptrCast([*c]const c.JanetRegExt, funs),
+        );
+    }
+    pub fn cfunsPrefix(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
+        return c.janet_cfuns_prefix(
+            env.toC(),
+            reg_prefix.ptr,
+            @ptrCast([*c]const c.JanetReg, funs),
+        );
+    }
+    pub fn cfunsExtPrefix(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
+        return c.janet_cfuns_ext_prefix(
+            env.toC(),
+            reg_prefix.ptr,
+            @ptrCast([*c]const c.JanetRegExt, funs),
+        );
+    }
+    pub fn doString(
+        env: *Environment,
+        str: []const u8,
+        source_path: [:0]const u8,
+        out: ?*Janet,
+    ) !void {
+        return try doBytes(env, str, source_path, out);
+    }
+    pub fn doBytes(
+        env: *Environment,
+        bytes: []const u8,
+        source_path: [:0]const u8,
+        out: ?*Janet,
+    ) !void {
+        const errflags = c.janet_dobytes(
+            env.toC(),
+            bytes.ptr,
+            @intCast(i32, bytes.len),
+            source_path.ptr,
+            @ptrCast([*c]c.Janet, out),
+        );
+        if (errflags == 0) {
+            return;
+        } else if ((errflags & 0x01) == 0x01) {
+            return error.RuntimeError;
+        } else if ((errflags & 0x02) == 0x02) {
+            return error.CompileError;
+        } else if ((errflags & 0x04) == 0x04) {
+            return error.ParseError;
+        } else {
+            return error.UnexpectedError;
+        }
+        unreachable;
+    }
+    pub fn envLookup(env: *Environment) *Environment {
+        return Environment.fromC(c.janet_env_lookup(env.toC()));
+    }
+    pub fn envLookupInto(
+        renv: *Environment,
+        env: *Environment,
+        prefix: [:0]const u8,
+        recurse: c_int,
+    ) void {
+        c.janet_env_lookup_into(renv.toC(), env.toC(), prefix.ptr, recurse);
+    }
 };
 
 pub const GCObject = extern struct {
@@ -1631,47 +1696,47 @@ test "refAllDecls" {
 test "hello world" {
     try init();
     defer deinit();
-    const env = coreEnv(null);
-    try doString(env, "(prin `hello, world!`)", "main", null);
+    const env = Environment.coreEnv(null);
+    try env.doString("(prin `hello, world!`)", "main", null);
 }
 
 test "unwrap values" {
     try init();
     defer deinit();
-    const env = coreEnv(null);
+    const env = Environment.coreEnv(null);
     {
         var value: Janet = undefined;
-        try doString(env, "1", "main", &value);
+        try env.doString("1", "main", &value);
         try testing.expectEqual(@as(i32, 1), try value.unwrap(i32));
     }
     {
         var value: Janet = undefined;
-        try doString(env, "1", "main", &value);
+        try env.doString("1", "main", &value);
         try testing.expectEqual(@as(f64, 1), try value.unwrap(f64));
     }
     {
         var value: Janet = undefined;
-        try doString(env, "true", "main", &value);
+        try env.doString("true", "main", &value);
         try testing.expectEqual(true, try value.unwrap(bool));
     }
     {
         var value: Janet = undefined;
-        try doString(env, "\"str\"", "main", &value);
+        try env.doString("\"str\"", "main", &value);
         try testing.expectEqualStrings("str", (try value.unwrap(String)).slice);
     }
     {
         var value: Janet = undefined;
-        try doString(env, ":str", "main", &value);
+        try env.doString(":str", "main", &value);
         try testing.expectEqualStrings("str", (try value.unwrap(Keyword)).slice);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "'str", "main", &value);
+        try env.doString("'str", "main", &value);
         try testing.expectEqualStrings("str", (try value.unwrap(Symbol)).slice);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "[58 true 36.0]", "main", &value);
+        try env.doString("[58 true 36.0]", "main", &value);
         const tuple = try value.unwrap(Tuple);
         try testing.expectEqual(@as(i32, 3), tuple.head().length);
         try testing.expectEqual(@as(usize, 3), tuple.slice.len);
@@ -1681,7 +1746,7 @@ test "unwrap values" {
     }
     {
         var value: Janet = undefined;
-        try doString(env, "@[58 true 36.0]", "main", &value);
+        try env.doString("@[58 true 36.0]", "main", &value);
         const array = try value.unwrap(*Array);
         try testing.expectEqual(@as(i32, 3), array.count);
         try testing.expectEqual(@as(i32, 58), try array.data[0].unwrap(i32));
@@ -1690,7 +1755,7 @@ test "unwrap values" {
     }
     {
         var value: Janet = undefined;
-        try doString(env, "@\"str\"", "main", &value);
+        try env.doString("@\"str\"", "main", &value);
         const buffer = try value.unwrap(*Buffer);
         try testing.expectEqual(@as(i32, 3), buffer.count);
         try testing.expectEqual(@as(u8, 's'), buffer.data[0]);
@@ -1699,32 +1764,32 @@ test "unwrap values" {
     }
     {
         var value: Janet = undefined;
-        try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
+        try env.doString("{:kw 2 'sym 8 98 56}", "main", &value);
         _ = try value.unwrap(Struct);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+        try env.doString("@{:kw 2 'sym 8 98 56}", "main", &value);
         _ = try value.unwrap(*Table);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "marshal", "main", &value);
+        try env.doString("marshal", "main", &value);
         _ = try value.unwrap(CFunction);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "+", "main", &value);
+        try env.doString("+", "main", &value);
         _ = try value.unwrap(*Function);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "(file/temp)", "main", &value);
+        try env.doString("(file/temp)", "main", &value);
         _ = try value.unwrapAbstract(c_void);
     }
     {
         var value: Janet = undefined;
-        try doString(env, "(fiber/current)", "main", &value);
+        try env.doString("(fiber/current)", "main", &value);
         _ = try value.unwrap(*Fiber);
     }
 }
@@ -1732,24 +1797,24 @@ test "unwrap values" {
 test "janet_type" {
     try init();
     defer deinit();
-    const env = coreEnv(null);
+    const env = Environment.coreEnv(null);
     var value: Janet = undefined;
-    try doString(env, "1", "main", &value);
+    try env.doString("1", "main", &value);
     try testing.expectEqual(JanetType.number, value.janetType());
 }
 
 test "janet_checktypes" {
     try init();
     defer deinit();
-    const env = coreEnv(null);
+    const env = Environment.coreEnv(null);
     {
         var value: Janet = undefined;
-        try doString(env, "1", "main", &value);
+        try env.doString("1", "main", &value);
         try testing.expectEqual(true, value.checkTypes(TFLAG_NUMBER));
     }
     {
         var value: Janet = undefined;
-        try doString(env, ":str", "main", &value);
+        try env.doString(":str", "main", &value);
         try testing.expectEqual(true, value.checkTypes(TFLAG_BYTES));
     }
 }
@@ -1757,9 +1822,9 @@ test "janet_checktypes" {
 test "struct" {
     try init();
     defer deinit();
-    const env = coreEnv(null);
+    const env = Environment.coreEnv(null);
     var value: Janet = undefined;
-    try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
+    try env.doString("{:kw 2 'sym 8 98 56}", "main", &value);
     const st = try value.unwrap(Struct);
     const first_kv = st.get(Janet.keyword("kw")).?;
     const second_kv = st.get(Janet.symbol("sym")).?;
@@ -1775,9 +1840,9 @@ test "table" {
     try init();
     defer deinit();
     {
-        const env = coreEnv(null);
+        const env = Environment.coreEnv(null);
         var value: Janet = undefined;
-        try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
+        try env.doString("@{:kw 2 'sym 8 98 56}", "main", &value);
         const table = try value.unwrap(*Table);
         const first_kv = table.get(Janet.keyword("kw")).?;
         const second_kv = table.get(Janet.symbol("sym")).?;
@@ -1869,32 +1934,32 @@ const zig_struct_cfuns = [_]Reg{
 test "abstract initialized inside Janet" {
     try init();
     defer deinit();
-    var env = coreEnv(null);
-    cfunsPrefix(env, "zig", &zig_struct_cfuns);
-    try doString(env, "(def st (zig/struct-init))", "main", null);
+    var env = Environment.coreEnv(null);
+    env.cfunsPrefix("zig", &zig_struct_cfuns);
+    try env.doString("(def st (zig/struct-init))", "main", null);
     // Default value is 1 if not supplied with the initializer.
-    try doString(env, "(assert (= (zig/get-counter st) 1))", "main", null);
-    try doString(env, "(zig/dec st)", "main", null);
-    try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 1))", "main", null);
+    try env.doString("(zig/dec st)", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 0))", "main", null);
     // Expected fail of dec function.
-    try testing.expectError(error.RuntimeError, doString(env, "(zig/dec st)", "main", null));
-    try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
-    try doString(env, "(zig/inc st 5)", "main", null);
-    try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+    try testing.expectError(error.RuntimeError, env.doString("(zig/dec st)", "main", null));
+    try env.doString("(assert (= (zig/get-counter st) 0))", "main", null);
+    try env.doString("(zig/inc st 5)", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 5))", "main", null);
 }
 
 test "abstract injected from Zig" {
     try init();
     defer deinit();
-    var env = coreEnv(null);
-    cfunsPrefix(env, "zig", &zig_struct_cfuns);
+    var env = Environment.coreEnv(null);
+    env.cfunsPrefix("zig", &zig_struct_cfuns);
     var st_abstract = ZigStructAbstract.init(&zig_struct_abstract_type);
     st_abstract.ptr.* = ZigStruct{ .counter = 2 };
-    def(env, "st", st_abstract.wrap(), null);
-    try doString(env, "(assert (= (zig/get-counter st) 2))", "main", null);
+    env.def("st", st_abstract.wrap(), null);
+    try env.doString("(assert (= (zig/get-counter st) 2))", "main", null);
     st_abstract.ptr.counter = 1;
-    try doString(env, "(assert (= (zig/get-counter st) 1))", "main", null);
-    try doString(env, "(zig/dec st)", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 1))", "main", null);
+    try env.doString("(zig/dec st)", "main", null);
     try testing.expectEqual(@as(u32, 0), st_abstract.ptr.counter);
 }
 
@@ -2085,40 +2150,39 @@ test "complex abstract" {
     // responsible for freeing all the allocated memory on deinit.
     defer deinit();
     complex_zig_struct_abstract_type.register();
-    var env = coreEnv(null);
-    cfunsPrefix(env, "zig", &complex_zig_struct_cfuns);
+    var env = Environment.coreEnv(null);
+    env.cfunsPrefix("zig", &complex_zig_struct_cfuns);
     // Init our `testing.allocator` as a Janet abstract type.
-    try doString(env, "(def ally (zig/alloc-init))", "main", null);
+    try env.doString("(def ally (zig/alloc-init))", "main", null);
     // Init our complex struct which requires a Zig allocator.
-    try doString(env, "(def st (zig/complex-struct-init ally))", "main", null);
-    try doString(env, "(assert (= (zig/get-counter st) 0))", "main", null);
+    try env.doString("(def st (zig/complex-struct-init ally))", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 0))", "main", null);
     // Testing `get` implementation.
-    try doString(env, "(assert (= (get st :me) nil))", "main", null);
+    try env.doString("(assert (= (get st :me) nil))", "main", null);
     // Testing `put` implementation.
-    try doString(env, "(put st :me [1 2 3])", "main", null);
+    try env.doString("(put st :me [1 2 3])", "main", null);
     // Testing `gcMark` implementation. If we don't implement gcMark, GC will collect [1 2 3]
     // tuple and Janet will panic trying to retrieve it.
-    try doString(env, "(gccollect)", "main", null);
-    try doString(env, "(assert (= (get st :me) [1 2 3]))", "main", null);
+    try env.doString("(gccollect)", "main", null);
+    try env.doString("(assert (= (get st :me) [1 2 3]))", "main", null);
     // Testing `call` implementation.
-    try doString(env, "(st 5)", "main", null);
-    try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
+    try env.doString("(st 5)", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 5))", "main", null);
     // Testing marshaling.
-    try doString(env, "(def marshaled (marshal st))", "main", null);
-    try doString(env, "(def unmarshaled (unmarshal marshaled))", "main", null);
-    try doString(env, "(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
+    try env.doString("(def marshaled (marshal st))", "main", null);
+    try env.doString("(def unmarshaled (unmarshal marshaled))", "main", null);
+    try env.doString("(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
     // Testing `compare` implementation.
-    try doString(env, "(assert (= (zig/get-counter st) 5))", "main", null);
-    try doString(env, "(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
-    try doString(env, "(assert (compare= unmarshaled st))", "main", null);
-    try doString(env, "(st 3)", "main", null);
-    try doString(env, "(assert (compare> unmarshaled st))", "main", null);
+    try env.doString("(assert (= (zig/get-counter st) 5))", "main", null);
+    try env.doString("(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
+    try env.doString("(assert (compare= unmarshaled st))", "main", null);
+    try env.doString("(st 3)", "main", null);
+    try env.doString("(assert (compare> unmarshaled st))", "main", null);
     // Testing `hash` implementation.
-    try doString(env, "(assert (= (hash st) 1337))", "main", null);
+    try env.doString("(assert (= (hash st) 1337))", "main", null);
     // Testing `next` implementation.
-    try doString(env, "(put st :mimi 42)", "main", null);
-    try doString(
-        env,
+    try env.doString("(put st :mimi 42)", "main", null);
+    try env.doString(
         \\(eachp [k v] st
         \\  (assert (or (and (= k :me)   (= v [1 2 3]))
         \\              (and (= k :mimi) (= v 42)))))

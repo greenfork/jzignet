@@ -2,6 +2,8 @@
 
 ## Development
 
+All changes are most probably breaking.
+
 * Functions were moved into structs to be "methods":
   * `continue` into Fiber
   * `continueSignal` into Fiber
@@ -29,6 +31,8 @@
   Janet into functions `string`, `keyword` and `symbol`
 * `symbolGen` function is moved into `Symbol.gen`
 * `abstract` function is moved into `Abstract.init` and `Abstract.initVoid`
+* Introduce new `Environment` struct which is same as `Table` but only allows
+  operations specific to environment manipulation.
 
 
 * WIP Turn `Signal` return value into an error union
