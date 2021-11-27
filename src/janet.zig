@@ -631,69 +631,75 @@ const JanetMixin = struct {
         return @ptrCast([*c]const c.Janet, janet);
     }
 
-    pub fn unwrapInteger(janet: Janet) !i32 {
-        if (!janet.checkType(.number)) return error.NotNumber;
-        return c.janet_unwrap_integer(janet.toC());
-    }
-    pub fn unwrapNumber(janet: Janet) !f64 {
-        if (!janet.checkType(.number)) return error.NotNumber;
-        return c.janet_unwrap_number(janet.toC());
-    }
-    pub fn unwrapBoolean(janet: Janet) !bool {
-        if (!janet.checkType(.boolean)) return error.NotBoolean;
-        return c.janet_unwrap_boolean(janet.toC()) > 0;
-    }
-    pub fn unwrapString(janet: Janet) !String {
-        if (!janet.checkType(.string)) return error.NotString;
-        return String.fromC(c.janet_unwrap_string(janet.toC()));
-    }
-    pub fn unwrapKeyword(janet: Janet) !Keyword {
-        if (!janet.checkType(.keyword)) return error.NotKeyword;
-        return Keyword.fromC(c.janet_unwrap_keyword(janet.toC()));
-    }
-    pub fn unwrapSymbol(janet: Janet) !Symbol {
-        if (!janet.checkType(.symbol)) return error.NotSymbol;
-        return Symbol.fromC(c.janet_unwrap_symbol(janet.toC()));
-    }
-    pub fn unwrapTuple(janet: Janet) !Tuple {
-        if (!janet.checkType(.tuple)) return error.NotTuple;
-        return Tuple.fromC(c.janet_unwrap_tuple(janet.toC()));
-    }
-    pub fn unwrapArray(janet: Janet) !*Array {
-        if (!janet.checkType(.array)) return error.NotArray;
-        return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
-    }
-    pub fn unwrapBuffer(janet: Janet) !*Buffer {
-        if (!janet.checkType(.buffer)) return error.NotBuffer;
-        return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
-    }
-    pub fn unwrapStruct(janet: Janet) !Struct {
-        if (!janet.checkType(.@"struct")) return error.NotStruct;
-        return Struct.fromC(c.janet_unwrap_struct(janet.toC()));
-    }
-    pub fn unwrapTable(janet: Janet) !*Table {
-        if (!janet.checkType(.table)) return error.NotTable;
-        return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
-    }
-    pub fn unwrapPointer(janet: Janet) !*c_void {
-        if (!janet.checkType(.pointer)) return error.NotPointer;
-        return c.janet_unwrap_pointer(janet.toC()) orelse unreachable;
-    }
-    pub fn unwrapCFunction(janet: Janet) !CFunction {
-        if (!janet.checkType(.cfunction)) return error.NotCFunction;
-        return CFunction.fromC(c.janet_unwrap_cfunction(janet.toC()));
-    }
-    pub fn unwrapFunction(janet: Janet) !*Function {
-        if (!janet.checkType(.function)) return error.NotFunction;
-        return Function.fromC(c.janet_unwrap_function(janet.toC()) orelse unreachable);
+    pub fn unwrap(janet: Janet, comptime T: type) !T {
+        switch (T) {
+            i32 => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                return c.janet_unwrap_integer(janet.toC());
+            },
+            f64 => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                return c.janet_unwrap_number(janet.toC());
+            },
+            bool => {
+                if (!janet.checkType(.boolean)) return error.NotBoolean;
+                return c.janet_unwrap_boolean(janet.toC()) > 0;
+            },
+            String => {
+                if (!janet.checkType(.string)) return error.NotString;
+                return String.fromC(c.janet_unwrap_string(janet.toC()));
+            },
+            Keyword => {
+                if (!janet.checkType(.keyword)) return error.NotKeyword;
+                return Keyword.fromC(c.janet_unwrap_keyword(janet.toC()));
+            },
+            Symbol => {
+                if (!janet.checkType(.symbol)) return error.NotSymbol;
+                return Symbol.fromC(c.janet_unwrap_symbol(janet.toC()));
+            },
+            Tuple => {
+                if (!janet.checkType(.tuple)) return error.NotTuple;
+                return Tuple.fromC(c.janet_unwrap_tuple(janet.toC()));
+            },
+            *Array => {
+                if (!janet.checkType(.array)) return error.NotArray;
+                return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
+            },
+            *Buffer => {
+                if (!janet.checkType(.buffer)) return error.NotBuffer;
+                return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
+            },
+            Struct => {
+                if (!janet.checkType(.@"struct")) return error.NotStruct;
+                return Struct.fromC(c.janet_unwrap_struct(janet.toC()));
+            },
+            *Table => {
+                if (!janet.checkType(.table)) return error.NotTable;
+                return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
+            },
+            *c_void => {
+                if (!janet.checkType(.pointer)) return error.NotPointer;
+                return c.janet_unwrap_pointer(janet.toC()) orelse unreachable;
+            },
+            CFunction => {
+                if (!janet.checkType(.cfunction)) return error.NotCFunction;
+                return CFunction.fromC(c.janet_unwrap_cfunction(janet.toC()));
+            },
+            *Function => {
+                if (!janet.checkType(.function)) return error.NotFunction;
+                return Function.fromC(c.janet_unwrap_function(janet.toC()) orelse unreachable);
+            },
+            *Fiber => {
+                if (!janet.checkType(.fiber)) return error.NotFiber;
+                return Fiber.fromC(c.janet_unwrap_fiber(janet.toC()) orelse unreachable);
+            },
+            else => @compileError("Unwrapping is not supported for '" ++ @typeName(T) ++ "'"),
+        }
+        unreachable;
     }
     pub fn unwrapAbstract(janet: Janet, comptime ValueType: type) !Abstract(ValueType) {
         if (!janet.checkType(.abstract)) return error.NotAbstract;
         return Abstract(ValueType).fromC(c.janet_unwrap_abstract(janet.toC()) orelse unreachable);
-    }
-    pub fn unwrapFiber(janet: Janet) !*Fiber {
-        if (!janet.checkType(.fiber)) return error.NotFiber;
-        return Fiber.fromC(c.janet_unwrap_fiber(janet.toC()) orelse unreachable);
     }
 
     pub fn checkType(janet: Janet, typ: JanetType) bool {
@@ -778,7 +784,7 @@ const JanetMixin = struct {
             *Table => value.wrap(),
             *c_void => Janet.fromC(c.janet_wrap_pointer(value)),
             []const u8 => string(value),
-            else => @compileError("Wrapping is unsupported for '" ++ @typeName(T) ++ "'"),
+            else => @compileError("Wrapping is not supported for '" ++ @typeName(T) ++ "'"),
         };
     }
 };
@@ -1636,56 +1642,56 @@ test "unwrap values" {
     {
         var value: Janet = undefined;
         try doString(env, "1", "main", &value);
-        try testing.expectEqual(@as(i32, 1), try value.unwrapInteger());
+        try testing.expectEqual(@as(i32, 1), try value.unwrap(i32));
     }
     {
         var value: Janet = undefined;
         try doString(env, "1", "main", &value);
-        try testing.expectEqual(@as(f64, 1), try value.unwrapNumber());
+        try testing.expectEqual(@as(f64, 1), try value.unwrap(f64));
     }
     {
         var value: Janet = undefined;
         try doString(env, "true", "main", &value);
-        try testing.expectEqual(true, try value.unwrapBoolean());
+        try testing.expectEqual(true, try value.unwrap(bool));
     }
     {
         var value: Janet = undefined;
         try doString(env, "\"str\"", "main", &value);
-        try testing.expectEqualStrings("str", (try value.unwrapString()).slice);
+        try testing.expectEqualStrings("str", (try value.unwrap(String)).slice);
     }
     {
         var value: Janet = undefined;
         try doString(env, ":str", "main", &value);
-        try testing.expectEqualStrings("str", (try value.unwrapKeyword()).slice);
+        try testing.expectEqualStrings("str", (try value.unwrap(Keyword)).slice);
     }
     {
         var value: Janet = undefined;
         try doString(env, "'str", "main", &value);
-        try testing.expectEqualStrings("str", (try value.unwrapSymbol()).slice);
+        try testing.expectEqualStrings("str", (try value.unwrap(Symbol)).slice);
     }
     {
         var value: Janet = undefined;
         try doString(env, "[58 true 36.0]", "main", &value);
-        const tuple = try value.unwrapTuple();
+        const tuple = try value.unwrap(Tuple);
         try testing.expectEqual(@as(i32, 3), tuple.head().length);
         try testing.expectEqual(@as(usize, 3), tuple.slice.len);
-        try testing.expectEqual(@as(i32, 58), try tuple.slice[0].unwrapInteger());
-        try testing.expectEqual(true, try tuple.slice[1].unwrapBoolean());
-        try testing.expectEqual(@as(f64, 36), try tuple.slice[2].unwrapNumber());
+        try testing.expectEqual(@as(i32, 58), try tuple.slice[0].unwrap(i32));
+        try testing.expectEqual(true, try tuple.slice[1].unwrap(bool));
+        try testing.expectEqual(@as(f64, 36), try tuple.slice[2].unwrap(f64));
     }
     {
         var value: Janet = undefined;
         try doString(env, "@[58 true 36.0]", "main", &value);
-        const array = try value.unwrapArray();
+        const array = try value.unwrap(*Array);
         try testing.expectEqual(@as(i32, 3), array.count);
-        try testing.expectEqual(@as(i32, 58), try array.data[0].unwrapInteger());
-        try testing.expectEqual(true, try array.data[1].unwrapBoolean());
-        try testing.expectEqual(@as(f64, 36), try array.data[2].unwrapNumber());
+        try testing.expectEqual(@as(i32, 58), try array.data[0].unwrap(i32));
+        try testing.expectEqual(true, try array.data[1].unwrap(bool));
+        try testing.expectEqual(@as(f64, 36), try array.data[2].unwrap(f64));
     }
     {
         var value: Janet = undefined;
         try doString(env, "@\"str\"", "main", &value);
-        const buffer = try value.unwrapBuffer();
+        const buffer = try value.unwrap(*Buffer);
         try testing.expectEqual(@as(i32, 3), buffer.count);
         try testing.expectEqual(@as(u8, 's'), buffer.data[0]);
         try testing.expectEqual(@as(u8, 't'), buffer.data[1]);
@@ -1694,22 +1700,22 @@ test "unwrap values" {
     {
         var value: Janet = undefined;
         try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
-        _ = try value.unwrapStruct();
+        _ = try value.unwrap(Struct);
     }
     {
         var value: Janet = undefined;
         try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
-        _ = try value.unwrapTable();
+        _ = try value.unwrap(*Table);
     }
     {
         var value: Janet = undefined;
         try doString(env, "marshal", "main", &value);
-        _ = try value.unwrapCFunction();
+        _ = try value.unwrap(CFunction);
     }
     {
         var value: Janet = undefined;
         try doString(env, "+", "main", &value);
-        _ = try value.unwrapFunction();
+        _ = try value.unwrap(*Function);
     }
     {
         var value: Janet = undefined;
@@ -1719,7 +1725,7 @@ test "unwrap values" {
     {
         var value: Janet = undefined;
         try doString(env, "(fiber/current)", "main", &value);
-        _ = try value.unwrapFiber();
+        _ = try value.unwrap(*Fiber);
     }
 }
 
@@ -1754,14 +1760,14 @@ test "struct" {
     const env = coreEnv(null);
     var value: Janet = undefined;
     try doString(env, "{:kw 2 'sym 8 98 56}", "main", &value);
-    const st = try value.unwrapStruct();
+    const st = try value.unwrap(Struct);
     const first_kv = st.get(Janet.keyword("kw")).?;
     const second_kv = st.get(Janet.symbol("sym")).?;
     const third_kv = st.get(Janet.wrap(i32, 98)).?;
     try testing.expectEqual(@as(i32, 3), st.head().length);
-    try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
-    try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
-    try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
+    try testing.expectEqual(@as(i32, 2), try first_kv.unwrap(i32));
+    try testing.expectEqual(@as(i32, 8), try second_kv.unwrap(i32));
+    try testing.expectEqual(@as(i32, 56), try third_kv.unwrap(i32));
     if (st.get(Janet.wrap(i32, 123))) |_| return error.MustBeNull;
 }
 
@@ -1772,14 +1778,14 @@ test "table" {
         const env = coreEnv(null);
         var value: Janet = undefined;
         try doString(env, "@{:kw 2 'sym 8 98 56}", "main", &value);
-        const table = try value.unwrapTable();
+        const table = try value.unwrap(*Table);
         const first_kv = table.get(Janet.keyword("kw")).?;
         const second_kv = table.get(Janet.symbol("sym")).?;
         const third_kv = table.get(Janet.wrap(i32, 98)).?;
         try testing.expectEqual(@as(i32, 3), table.count);
-        try testing.expectEqual(@as(i32, 2), try first_kv.unwrapInteger());
-        try testing.expectEqual(@as(i32, 8), try second_kv.unwrapInteger());
-        try testing.expectEqual(@as(i32, 56), try third_kv.unwrapInteger());
+        try testing.expectEqual(@as(i32, 2), try first_kv.unwrap(i32));
+        try testing.expectEqual(@as(i32, 8), try second_kv.unwrap(i32));
+        try testing.expectEqual(@as(i32, 56), try third_kv.unwrap(i32));
         if (table.get(Janet.wrap(i32, 123))) |_| return error.MustBeNull;
     }
     {
@@ -1788,13 +1794,13 @@ test "table" {
         table.put(Janet.keyword("oranges"), Janet.wrap(i32, 8));
         table.put(Janet.keyword("peaches"), Janet.wrap(i32, 1));
         const apples = table.get(Janet.keyword("apples")).?;
-        try testing.expectEqual(@as(i32, 2), try apples.unwrapInteger());
+        try testing.expectEqual(@as(i32, 2), try apples.unwrap(i32));
         var which_table: *Table = undefined;
         const oranges = table.getEx(Janet.keyword("oranges"), &which_table).?;
-        try testing.expectEqual(@as(i32, 8), try oranges.unwrapInteger());
+        try testing.expectEqual(@as(i32, 8), try oranges.unwrap(i32));
         try testing.expectEqual(table, which_table);
         const peaches = table.rawGet(Janet.keyword("peaches")).?;
-        try testing.expectEqual(@as(i32, 1), try peaches.unwrapInteger());
+        try testing.expectEqual(@as(i32, 1), try peaches.unwrap(i32));
         _ = table.remove(Janet.keyword("peaches"));
         if (table.get(Janet.keyword("peaches"))) |_| return error.MustBeNull;
     }
@@ -1938,7 +1944,7 @@ fn czsGcMark(st: *ComplexZigStruct, len: usize) callconv(.C) c_int {
     return 0;
 }
 fn czsGet(st: *ComplexZigStruct, key: Janet, out: *Janet) callconv(.C) c_int {
-    const k = key.unwrapKeyword() catch {
+    const k = key.unwrap(Keyword) catch {
         panic("Not a keyword");
     };
     if (st.storage.get(k.slice)) |value| {
@@ -1949,7 +1955,7 @@ fn czsGet(st: *ComplexZigStruct, key: Janet, out: *Janet) callconv(.C) c_int {
     }
 }
 fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
-    const k = key.unwrapKeyword() catch {
+    const k = key.unwrap(Keyword) catch {
         panic("Not a keyword");
     };
     // HACK: allocating the key to be stored in our struct's `storage` via Janet's allocation
@@ -2009,7 +2015,7 @@ fn czsNext(st: *ComplexZigStruct, key: Janet) callconv(.C) Janet {
             return Janet.nil();
         }
     } else {
-        const str_key = key.unwrapKeyword() catch {
+        const str_key = key.unwrap(Keyword) catch {
             panic("Not a keyword");
         };
         var it = st.storage.keyIterator();
