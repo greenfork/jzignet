@@ -183,6 +183,7 @@ pub fn get(comptime T: type, argv: [*]const Janet, n: i32) T {
         ByteView => @ptrCast(*ByteView, &c.janet_getbytes(Janet.toConstPtr(argv), n)).*,
         DictView => @ptrCast(*DictView, &c.janet_getdictionary(Janet.toConstPtr(argv), n)).*,
         Range => @ptrCast(*Range, &c.janet_getslice(n, Janet.toConstPtr(argv))).*,
+        AbstractType => @compileError("Please use 'getAbstract' instead"),
         else => @compileError("Get is not supported for '" ++ @typeName(T) ++ "'"),
     };
 }
@@ -230,6 +231,10 @@ pub fn opt(comptime T: type, argv: [*]const Janet, argc: i32, n: i32, dflt: T) T
         *Function => Function.fromC(
             c.janet_optfunction(Janet.toConstPtr(argv), argc, n, dflt.toC()) orelse unreachable,
         ),
+        AbstractType => @compileError("Please use 'optAbstract' instead"),
+        *Array => @compileError("Please use 'optArray' instead"),
+        *Table => @compileError("Please use 'optTable' instead"),
+        *Buffer => @compileError("Please use 'optBuffer' instead"),
         else => @compileError("Opt is not supported for '" ++ @typeName(T) ++ "'"),
     };
 }
@@ -550,6 +555,7 @@ const JanetMixin = struct {
                 if (!janet.checkType(.fiber)) return error.NotFiber;
                 return Fiber.fromC(c.janet_unwrap_fiber(janet.toC()) orelse unreachable);
             },
+            AbstractType => @compileError("Please use 'unwrapAbstract' instead"),
             else => @compileError("Unwrapping is not supported for '" ++ @typeName(T) ++ "'"),
         }
         unreachable;
@@ -1534,6 +1540,8 @@ pub const MarshalContext = extern struct {
             i64 => c.janet_unmarshal_int64(ctx.toC()),
             u8 => c.janet_unmarshal_byte(ctx.toC()),
             Janet => Janet.fromC(c.janet_unmarshal_janet(ctx.toC())),
+            *c_void => @compileError("Please use 'unmarshalAbstract' instead"),
+            []u8, []const u8 => @compileError("Please use 'unmarshalBytes' instead"),
             else => @compileError("Unmarshaling is not supported for '" ++ @typeName(T) ++ "'"),
         };
     }
