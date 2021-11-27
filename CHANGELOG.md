@@ -42,3 +42,4 @@ All changes are most probably breaking.
 * `doString` and `doBytes` functions always return `Janet` value instead of
   accepting a pointer `*Janet` as an argument.
 * `printf` -> `print`, `eprintf` -> `eprint`
+* `registerAbstractType` is removed in favor of just `register`

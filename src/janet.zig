@@ -411,9 +411,6 @@ pub fn unmarshalAbstract(ctx: *MarshalContext, size: usize) *c_void {
 pub fn unmarshalAbstractReuse(ctx: *MarshalContext, p: *c_void) void {
     c.janet_unmarshal_abstract_reuse(ctx.toC(), p);
 }
-pub fn registerAbstractType(at: *const AbstractType) void {
-    c.janet_register_abstract_type(at.toC());
-}
 pub fn getAbstractType(key: Janet) *const AbstractType {
     return AbstractType.fromC(c.janet_get_abstract_type(key.toC()));
 }
