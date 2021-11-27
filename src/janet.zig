@@ -1768,6 +1768,8 @@ test "refAllDecls" {
     testing.refAllDecls(Abstract(c_void));
     testing.refAllDecls(Function);
     testing.refAllDecls(CFunction);
+    testing.refAllDecls(Environment);
+    testing.refAllDecls(MarshalContext);
 }
 
 test "hello world" {
