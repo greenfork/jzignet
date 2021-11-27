@@ -1286,29 +1286,20 @@ pub const Environment = extern struct {
             @ptrCast([*c]const c.JanetRegExt, funs),
         );
     }
-    pub fn doString(
-        env: *Environment,
-        str: []const u8,
-        source_path: [:0]const u8,
-        out: ?*Janet,
-    ) !void {
-        return try doBytes(env, str, source_path, out);
+    pub fn doString(env: *Environment, str: []const u8, source_path: [:0]const u8) !Janet {
+        return try doBytes(env, str, source_path);
     }
-    pub fn doBytes(
-        env: *Environment,
-        bytes: []const u8,
-        source_path: [:0]const u8,
-        out: ?*Janet,
-    ) !void {
+    pub fn doBytes(env: *Environment, bytes: []const u8, source_path: [:0]const u8) !Janet {
+        var janet: Janet = undefined;
         const errflags = c.janet_dobytes(
             env.toC(),
             bytes.ptr,
             @intCast(i32, bytes.len),
             source_path.ptr,
-            @ptrCast([*c]c.Janet, out),
+            @ptrCast([*c]c.Janet, &janet),
         );
         if (errflags == 0) {
-            return;
+            return janet;
         } else if ((errflags & 0x01) == 0x01) {
             return error.RuntimeError;
         } else if ((errflags & 0x02) == 0x02) {
@@ -1798,7 +1789,7 @@ test "hello world" {
     try init();
     defer deinit();
     const env = Environment.coreEnv(null);
-    try env.doString("(prin `hello, world!`)", "main", null);
+    _ = try env.doString("(prin `hello, world!`)", "main");
 }
 
 test "unwrap values" {
@@ -1806,38 +1797,31 @@ test "unwrap values" {
     defer deinit();
     const env = Environment.coreEnv(null);
     {
-        var value: Janet = undefined;
-        try env.doString("1", "main", &value);
+        const value = try env.doString("1", "main");
         try testing.expectEqual(@as(i32, 1), try value.unwrap(i32));
     }
     {
-        var value: Janet = undefined;
-        try env.doString("1", "main", &value);
+        const value = try env.doString("1", "main");
         try testing.expectEqual(@as(f64, 1), try value.unwrap(f64));
     }
     {
-        var value: Janet = undefined;
-        try env.doString("true", "main", &value);
+        const value = try env.doString("true", "main");
         try testing.expectEqual(true, try value.unwrap(bool));
     }
     {
-        var value: Janet = undefined;
-        try env.doString("\"str\"", "main", &value);
+        const value = try env.doString("\"str\"", "main");
         try testing.expectEqualStrings("str", (try value.unwrap(String)).slice);
     }
     {
-        var value: Janet = undefined;
-        try env.doString(":str", "main", &value);
+        const value = try env.doString(":str", "main");
         try testing.expectEqualStrings("str", (try value.unwrap(Keyword)).slice);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("'str", "main", &value);
+        const value = try env.doString("'str", "main");
         try testing.expectEqualStrings("str", (try value.unwrap(Symbol)).slice);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("[58 true 36.0]", "main", &value);
+        const value = try env.doString("[58 true 36.0]", "main");
         const tuple = try value.unwrap(Tuple);
         try testing.expectEqual(@as(i32, 3), tuple.head().length);
         try testing.expectEqual(@as(usize, 3), tuple.slice.len);
@@ -1846,8 +1830,7 @@ test "unwrap values" {
         try testing.expectEqual(@as(f64, 36), try tuple.slice[2].unwrap(f64));
     }
     {
-        var value: Janet = undefined;
-        try env.doString("@[58 true 36.0]", "main", &value);
+        const value = try env.doString("@[58 true 36.0]", "main");
         const array = try value.unwrap(*Array);
         try testing.expectEqual(@as(i32, 3), array.count);
         try testing.expectEqual(@as(i32, 58), try array.data[0].unwrap(i32));
@@ -1855,8 +1838,7 @@ test "unwrap values" {
         try testing.expectEqual(@as(f64, 36), try array.data[2].unwrap(f64));
     }
     {
-        var value: Janet = undefined;
-        try env.doString("@\"str\"", "main", &value);
+        const value = try env.doString("@\"str\"", "main");
         const buffer = try value.unwrap(*Buffer);
         try testing.expectEqual(@as(i32, 3), buffer.count);
         try testing.expectEqual(@as(u8, 's'), buffer.data[0]);
@@ -1864,33 +1846,27 @@ test "unwrap values" {
         try testing.expectEqual(@as(u8, 'r'), buffer.data[2]);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("{:kw 2 'sym 8 98 56}", "main", &value);
+        const value = try env.doString("{:kw 2 'sym 8 98 56}", "main");
         _ = try value.unwrap(Struct);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("@{:kw 2 'sym 8 98 56}", "main", &value);
+        const value = try env.doString("@{:kw 2 'sym 8 98 56}", "main");
         _ = try value.unwrap(*Table);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("marshal", "main", &value);
+        const value = try env.doString("marshal", "main");
         _ = try value.unwrap(CFunction);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("+", "main", &value);
+        const value = try env.doString("+", "main");
         _ = try value.unwrap(*Function);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("(file/temp)", "main", &value);
+        const value = try env.doString("(file/temp)", "main");
         _ = try value.unwrapAbstract(c_void);
     }
     {
-        var value: Janet = undefined;
-        try env.doString("(fiber/current)", "main", &value);
+        const value = try env.doString("(fiber/current)", "main");
         _ = try value.unwrap(*Fiber);
     }
 }
@@ -1899,8 +1875,7 @@ test "janet_type" {
     try init();
     defer deinit();
     const env = Environment.coreEnv(null);
-    var value: Janet = undefined;
-    try env.doString("1", "main", &value);
+    const value = try env.doString("1", "main");
     try testing.expectEqual(JanetType.number, value.janetType());
 }
 
@@ -1909,13 +1884,11 @@ test "janet_checktypes" {
     defer deinit();
     const env = Environment.coreEnv(null);
     {
-        var value: Janet = undefined;
-        try env.doString("1", "main", &value);
+        const value = try env.doString("1", "main");
         try testing.expectEqual(true, value.checkTypes(TFLAG_NUMBER));
     }
     {
-        var value: Janet = undefined;
-        try env.doString(":str", "main", &value);
+        const value = try env.doString(":str", "main");
         try testing.expectEqual(true, value.checkTypes(TFLAG_BYTES));
     }
 }
@@ -1924,8 +1897,7 @@ test "struct" {
     try init();
     defer deinit();
     const env = Environment.coreEnv(null);
-    var value: Janet = undefined;
-    try env.doString("{:kw 2 'sym 8 98 56}", "main", &value);
+    const value = try env.doString("{:kw 2 'sym 8 98 56}", "main");
     const st = try value.unwrap(Struct);
     const first_kv = st.get(Janet.keyword("kw")).?;
     const second_kv = st.get(Janet.symbol("sym")).?;
@@ -1942,8 +1914,7 @@ test "table" {
     defer deinit();
     {
         const env = Environment.coreEnv(null);
-        var value: Janet = undefined;
-        try env.doString("@{:kw 2 'sym 8 98 56}", "main", &value);
+        const value = try env.doString("@{:kw 2 'sym 8 98 56}", "main");
         const table = try value.unwrap(*Table);
         const first_kv = table.get(Janet.keyword("kw")).?;
         const second_kv = table.get(Janet.symbol("sym")).?;
@@ -2037,16 +2008,16 @@ test "abstract initialized inside Janet" {
     defer deinit();
     var env = Environment.coreEnv(null);
     env.cfunsPrefix("zig", &zig_struct_cfuns);
-    try env.doString("(def st (zig/struct-init))", "main", null);
+    _ = try env.doString("(def st (zig/struct-init))", "main");
     // Default value is 1 if not supplied with the initializer.
-    try env.doString("(assert (= (zig/get-counter st) 1))", "main", null);
-    try env.doString("(zig/dec st)", "main", null);
-    try env.doString("(assert (= (zig/get-counter st) 0))", "main", null);
+    _ = try env.doString("(assert (= (zig/get-counter st) 1))", "main");
+    _ = try env.doString("(zig/dec st)", "main");
+    _ = try env.doString("(assert (= (zig/get-counter st) 0))", "main");
     // Expected fail of dec function.
-    try testing.expectError(error.RuntimeError, env.doString("(zig/dec st)", "main", null));
-    try env.doString("(assert (= (zig/get-counter st) 0))", "main", null);
-    try env.doString("(zig/inc st 5)", "main", null);
-    try env.doString("(assert (= (zig/get-counter st) 5))", "main", null);
+    try testing.expectError(error.RuntimeError, env.doString("(zig/dec st)", "main"));
+    _ = try env.doString("(assert (= (zig/get-counter st) 0))", "main");
+    _ = try env.doString("(zig/inc st 5)", "main");
+    _ = try env.doString("(assert (= (zig/get-counter st) 5))", "main");
 }
 
 test "abstract injected from Zig" {
@@ -2057,10 +2028,10 @@ test "abstract injected from Zig" {
     var st_abstract = ZigStructAbstract.init(&zig_struct_abstract_type);
     st_abstract.ptr.* = ZigStruct{ .counter = 2 };
     env.def("st", st_abstract.wrap(), null);
-    try env.doString("(assert (= (zig/get-counter st) 2))", "main", null);
+    _ = try env.doString("(assert (= (zig/get-counter st) 2))", "main");
     st_abstract.ptr.counter = 1;
-    try env.doString("(assert (= (zig/get-counter st) 1))", "main", null);
-    try env.doString("(zig/dec st)", "main", null);
+    _ = try env.doString("(assert (= (zig/get-counter st) 1))", "main");
+    _ = try env.doString("(zig/dec st)", "main");
     try testing.expectEqual(@as(u32, 0), st_abstract.ptr.counter);
 }
 
@@ -2254,42 +2225,41 @@ test "complex abstract" {
     var env = Environment.coreEnv(null);
     env.cfunsPrefix("zig", &complex_zig_struct_cfuns);
     // Init our `testing.allocator` as a Janet abstract type.
-    try env.doString("(def ally (zig/alloc-init))", "main", null);
+    _ = try env.doString("(def ally (zig/alloc-init))", "main");
     // Init our complex struct which requires a Zig allocator.
-    try env.doString("(def st (zig/complex-struct-init ally))", "main", null);
-    try env.doString("(assert (= (zig/get-counter st) 0))", "main", null);
+    _ = try env.doString("(def st (zig/complex-struct-init ally))", "main");
+    _ = try env.doString("(assert (= (zig/get-counter st) 0))", "main");
     // Testing `get` implementation.
-    try env.doString("(assert (= (get st :me) nil))", "main", null);
+    _ = try env.doString("(assert (= (get st :me) nil))", "main");
     // Testing `put` implementation.
-    try env.doString("(put st :me [1 2 3])", "main", null);
+    _ = try env.doString("(put st :me [1 2 3])", "main");
     // Testing `gcMark` implementation. If we don't implement gcMark, GC will collect [1 2 3]
     // tuple and Janet will panic trying to retrieve it.
-    try env.doString("(gccollect)", "main", null);
-    try env.doString("(assert (= (get st :me) [1 2 3]))", "main", null);
+    _ = try env.doString("(gccollect)", "main");
+    _ = try env.doString("(assert (= (get st :me) [1 2 3]))", "main");
     // Testing `call` implementation.
-    try env.doString("(st 5)", "main", null);
-    try env.doString("(assert (= (zig/get-counter st) 5))", "main", null);
+    _ = try env.doString("(st 5)", "main");
+    _ = try env.doString("(assert (= (zig/get-counter st) 5))", "main");
     // Testing marshaling.
-    try env.doString("(def marshaled (marshal st))", "main", null);
-    try env.doString("(def unmarshaled (unmarshal marshaled))", "main", null);
-    try env.doString("(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
+    _ = try env.doString("(def marshaled (marshal st))", "main");
+    _ = try env.doString("(def unmarshaled (unmarshal marshaled))", "main");
+    _ = try env.doString("(assert (= (zig/get-counter unmarshaled) 5))", "main");
     // Testing `compare` implementation.
-    try env.doString("(assert (= (zig/get-counter st) 5))", "main", null);
-    try env.doString("(assert (= (zig/get-counter unmarshaled) 5))", "main", null);
-    try env.doString("(assert (compare= unmarshaled st))", "main", null);
-    try env.doString("(st 3)", "main", null);
-    try env.doString("(assert (compare> unmarshaled st))", "main", null);
+    _ = try env.doString("(assert (= (zig/get-counter st) 5))", "main");
+    _ = try env.doString("(assert (= (zig/get-counter unmarshaled) 5))", "main");
+    _ = try env.doString("(assert (compare= unmarshaled st))", "main");
+    _ = try env.doString("(st 3)", "main");
+    _ = try env.doString("(assert (compare> unmarshaled st))", "main");
     // Testing `hash` implementation.
-    try env.doString("(assert (= (hash st) 1337))", "main", null);
+    _ = try env.doString("(assert (= (hash st) 1337))", "main");
     // Testing `next` implementation.
-    try env.doString("(put st :mimi 42)", "main", null);
-    try env.doString(
+    _ = try env.doString("(put st :mimi 42)", "main");
+    _ = try env.doString(
         \\(eachp [k v] st
         \\  (assert (or (and (= k :me)   (= v [1 2 3]))
         \\              (and (= k :mimi) (= v 42)))))
     ,
         "main",
-        null,
     );
 }
 
@@ -2297,8 +2267,7 @@ test "function call" {
     try init();
     defer deinit();
     const env = Environment.coreEnv(null);
-    var value: Janet = undefined;
-    try env.doString("+", "main", &value);
+    const value = try env.doString("+", "main");
     const func = try value.unwrap(*Function);
     var sum: Janet = undefined;
     try func.pcall(&[_]Janet{ Janet.wrap(i32, 2), Janet.wrap(i32, 2) }, &sum, null);

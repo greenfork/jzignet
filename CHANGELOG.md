@@ -39,3 +39,5 @@ All changes are most probably breaking.
   `Signal.Error` is anything but `ok` signal.
 * Functions such as `pcall` only take `[]const Janet` instead of both pointer
   and argument length.
+* `doString` and `doBytes` functions always return `Janet` value instead of
+  accepting a pointer `*Janet` as an argument.
