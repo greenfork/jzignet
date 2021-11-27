@@ -158,58 +158,58 @@ pub fn nextMethod(methods: [*]const Method, key: Janet) Janet {
 }
 
 pub fn getNumber(argv: [*]const Janet, n: i32) f64 {
-    return c.janet_getnumber(Janet.toCPtr(argv), n);
+    return c.janet_getnumber(Janet.toConstPtr(argv), n);
 }
 pub fn getArray(argv: [*]const Janet, n: i32) *Array {
-    return Array.fromC(c.janet_getarray(Janet.toCPtr(argv), n));
+    return Array.fromC(c.janet_getarray(Janet.toConstPtr(argv), n));
 }
 pub fn getTuple(argv: [*]const Janet, n: i32) Tuple {
-    return Tuple.fromC(c.janet_gettuple(Janet.toCPtr(argv), n));
+    return Tuple.fromC(c.janet_gettuple(Janet.toConstPtr(argv), n));
 }
 pub fn getTable(argv: [*]const Janet, n: i32) *Table {
-    return Table.fromC(c.janet_gettable(Janet.toCPtr(argv), n));
+    return Table.fromC(c.janet_gettable(Janet.toConstPtr(argv), n));
 }
 pub fn getStruct(argv: [*]const Janet, n: i32) Struct {
-    return Struct.fromC(c.janet_getstruct(Janet.toCPtr(argv), n));
+    return Struct.fromC(c.janet_getstruct(Janet.toConstPtr(argv), n));
 }
 pub fn getString(argv: [*]const Janet, n: i32) String {
-    return String.fromC(c.janet_getstring(Janet.toCPtr(argv), n));
+    return String.fromC(c.janet_getstring(Janet.toConstPtr(argv), n));
 }
 pub fn getSymbol(argv: [*]const Janet, n: i32) Symbol {
-    return Symbol.fromC(c.janet_getsymbol(Janet.toCPtr(argv), n));
+    return Symbol.fromC(c.janet_getsymbol(Janet.toConstPtr(argv), n));
 }
 pub fn getKeyword(argv: [*]const Janet, n: i32) Keyword {
-    return Keyword.fromC(c.janet_getkeyword(Janet.toCPtr(argv), n));
+    return Keyword.fromC(c.janet_getkeyword(Janet.toConstPtr(argv), n));
 }
 pub fn getBuffer(argv: [*]const Janet, n: i32) *Buffer {
-    return Buffer.fromC(c.janet_getbuffer(Janet.toCPtr(argv), n));
+    return Buffer.fromC(c.janet_getbuffer(Janet.toConstPtr(argv), n));
 }
 pub fn getBoolean(argv: [*]const Janet, n: i32) bool {
-    return c.janet_getboolean(Janet.toCPtr(argv), n) > 0;
+    return c.janet_getboolean(Janet.toConstPtr(argv), n) > 0;
 }
 pub fn getPointer(argv: [*]const Janet, n: i32) *c_void {
-    return c.janet_getpointer(Janet.toCPtr(argv), n) orelse unreachable;
+    return c.janet_getpointer(Janet.toConstPtr(argv), n) orelse unreachable;
 }
 pub fn getCFunction(argv: [*]const Janet, n: i32) CFunction {
-    return CFunction.fromC(c.janet_getcfunction(Janet.toCPtr(argv), n));
+    return CFunction.fromC(c.janet_getcfunction(Janet.toConstPtr(argv), n));
 }
 pub fn getFiber(argv: [*]const Janet, n: i32) *Fiber {
-    return Fiber.fromC(c.janet_getfiber(Janet.toCPtr(argv), n) orelse unreachable);
+    return Fiber.fromC(c.janet_getfiber(Janet.toConstPtr(argv), n) orelse unreachable);
 }
 pub fn getFunction(argv: [*]const Janet, n: i32) *Function {
-    return Function.fromC(c.janet_getfunction(Janet.toCPtr(argv), n) orelse unreachable);
+    return Function.fromC(c.janet_getfunction(Janet.toConstPtr(argv), n) orelse unreachable);
 }
 pub fn getNat(argv: [*]const Janet, n: i32) i32 {
-    return c.janet_getnat(Janet.toCPtr(argv), n);
+    return c.janet_getnat(Janet.toConstPtr(argv), n);
 }
 pub fn getInteger(argv: [*]const Janet, n: i32) i32 {
-    return c.janet_getinteger(Janet.toCPtr(argv), n);
+    return c.janet_getinteger(Janet.toConstPtr(argv), n);
 }
 pub fn getInteger64(argv: [*]const Janet, n: i32) i64 {
-    return c.janet_getinteger64(Janet.toCPtr(argv), n);
+    return c.janet_getinteger64(Janet.toConstPtr(argv), n);
 }
 pub fn getSize(argv: [*]const Janet, n: i32) usize {
-    return c.janet_getsize(Janet.toCPtr(argv), n);
+    return c.janet_getsize(Janet.toConstPtr(argv), n);
 }
 pub fn getAbstract(
     argv: [*]const Janet,
@@ -218,80 +218,80 @@ pub fn getAbstract(
     at: *const Abstract(ValueType).Type,
 ) Abstract(ValueType) {
     return Abstract(ValueType).fromC(
-        c.janet_getabstract(Janet.toCPtr(argv), n, at.toC()) orelse unreachable,
+        c.janet_getabstract(Janet.toConstPtr(argv), n, at.toC()) orelse unreachable,
     );
 }
 pub fn getHalfRange(argv: [*]const Janet, n: i32, length: i32, which: [:0]const u8) i32 {
-    return c.janet_gethalfrange(Janet.toCPtr(argv), n, length, which.ptr);
+    return c.janet_gethalfrange(Janet.toConstPtr(argv), n, length, which.ptr);
 }
 pub fn getArgIndex(argv: [*]const Janet, n: i32, length: i32, which: [:0]const u8) i32 {
-    return c.janet_getargindex(Janet.toCPtr(argv), n, length, which.ptr);
+    return c.janet_getargindex(Janet.toConstPtr(argv), n, length, which.ptr);
 }
 pub fn getFlags(argv: [*]const Janet, n: i32, flags: [:0]const u8) u64 {
-    return c.janet_getflags(Janet.toCPtr(argv), n, flags.ptr);
+    return c.janet_getflags(Janet.toConstPtr(argv), n, flags.ptr);
 }
 pub fn getIndexed(argv: [*]const Janet, n: i32) View {
-    return @ptrCast(*View, &c.janet_getindexed(Janet.toCPtr(argv), n)).*;
+    return @ptrCast(*View, &c.janet_getindexed(Janet.toConstPtr(argv), n)).*;
 }
 pub fn getBytes(argv: [*]const Janet, n: i32) ByteView {
-    return @ptrCast(*ByteView, &c.janet_getbytes(Janet.toCPtr(argv), n)).*;
+    return @ptrCast(*ByteView, &c.janet_getbytes(Janet.toConstPtr(argv), n)).*;
 }
 pub fn getDictionary(argv: [*]const Janet, n: i32) DictView {
-    return @ptrCast(*DictView, &c.janet_getdictionary(Janet.toCPtr(argv), n)).*;
+    return @ptrCast(*DictView, &c.janet_getdictionary(Janet.toConstPtr(argv), n)).*;
 }
 pub fn getSlice(argc: i32, argv: [*]const Janet) Range {
-    return @ptrCast(*Range, &c.janet_getslice(argc, Janet.toCPtr(argv))).*;
+    return @ptrCast(*Range, &c.janet_getslice(argc, Janet.toConstPtr(argv))).*;
 }
 
 pub fn optNumber(argv: [*]const Janet, argc: i32, n: i32, dflt: f64) f64 {
-    return c.janet_optnumber(Janet.toCPtr(argv), argc, n, dflt);
+    return c.janet_optnumber(Janet.toConstPtr(argv), argc, n, dflt);
 }
 pub fn optTuple(argv: [*]const Janet, argc: i32, n: i32, dflt: Tuple) Tuple {
-    return Tuple.fromC(c.janet_opttuple(Janet.toCPtr(argv), argc, n, dflt.toC()));
+    return Tuple.fromC(c.janet_opttuple(Janet.toConstPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optStruct(argv: [*]const Janet, argc: i32, n: i32, dflt: Struct) Struct {
-    return Struct.fromC(c.janet_optstruct(Janet.toCPtr(argv), argc, n, dflt.toC()));
+    return Struct.fromC(c.janet_optstruct(Janet.toConstPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optString(argv: [*]const Janet, argc: i32, n: i32, dflt: String) String {
-    return String.fromC(c.janet_optstring(Janet.toCPtr(argv), argc, n, dflt.toC()));
+    return String.fromC(c.janet_optstring(Janet.toConstPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optSymbol(argv: [*]const Janet, argc: i32, n: i32, dflt: Symbol) Symbol {
-    return Symbol.fromC(c.janet_optsymbol(Janet.toCPtr(argv), argc, n, dflt.toC()));
+    return Symbol.fromC(c.janet_optsymbol(Janet.toConstPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optKeyword(argv: [*]const Janet, argc: i32, n: i32, dflt: Keyword) Keyword {
-    return Keyword.fromC(c.janet_optkeyword(Janet.toCPtr(argv), argc, n, dflt.toC()));
+    return Keyword.fromC(c.janet_optkeyword(Janet.toConstPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optBoolean(argv: [*]const Janet, argc: i32, n: i32, dflt: bool) bool {
-    return c.janet_optboolean(Janet.toCPtr(argv), argc, n, if (dflt) 1 else 0) > 0;
+    return c.janet_optboolean(Janet.toConstPtr(argv), argc, n, if (dflt) 1 else 0) > 0;
 }
 pub fn optPointer(argv: [*]const Janet, argc: i32, n: i32, dflt: *c_void) *c_void {
-    return c.janet_optpointer(Janet.toCPtr(argv), argc, n, dflt) orelse unreachable;
+    return c.janet_optpointer(Janet.toConstPtr(argv), argc, n, dflt) orelse unreachable;
 }
 pub fn optCFunction(argv: [*]const Janet, argc: i32, n: i32, dflt: CFunction) CFunction {
-    return CFunction.fromC(c.janet_optcfunction(Janet.toCPtr(argv), argc, n, dflt.toC()));
+    return CFunction.fromC(c.janet_optcfunction(Janet.toConstPtr(argv), argc, n, dflt.toC()));
 }
 pub fn optFiber(argv: [*]const Janet, argc: i32, n: i32, dflt: *Fiber) *Fiber {
     return Fiber.fromC(c.janet_optfiber(
-        Janet.toCPtr(argv),
+        Janet.toConstPtr(argv),
         argc,
         n,
         dflt.toC(),
     ) orelse unreachable);
 }
 pub fn optFunction(argv: [*]const Janet, argc: i32, n: i32, dflt: *Function) *Function {
-    return Function.fromC(c.janet_optfunction(Janet.toCPtr(argv), argc, n, dflt.toC()) orelse unreachable);
+    return Function.fromC(c.janet_optfunction(Janet.toConstPtr(argv), argc, n, dflt.toC()) orelse unreachable);
 }
 pub fn optNat(argv: [*]const Janet, argc: i32, n: i32, dflt: i32) i32 {
-    return c.janet_optnat(Janet.toCPtr(argv), argc, n, dflt);
+    return c.janet_optnat(Janet.toConstPtr(argv), argc, n, dflt);
 }
 pub fn optInteger(argv: [*]const Janet, argc: i32, n: i32, dflt: i32) i32 {
-    return c.janet_optinteger(Janet.toCPtr(argv), argc, n, dflt);
+    return c.janet_optinteger(Janet.toConstPtr(argv), argc, n, dflt);
 }
 pub fn optInteger64(argv: [*]const Janet, argc: i32, n: i32, dflt: i64) i64 {
-    return c.janet_optinteger64(Janet.toCPtr(argv), argc, n, dflt);
+    return c.janet_optinteger64(Janet.toConstPtr(argv), argc, n, dflt);
 }
 pub fn optSize(argv: [*]const Janet, argc: i32, n: i32, dflt: usize) usize {
-    return c.janet_optsize(Janet.toCPtr(argv), argc, n, dflt);
+    return c.janet_optsize(Janet.toConstPtr(argv), argc, n, dflt);
 }
 pub fn optAbstract(
     argv: [*]const Janet,
@@ -302,7 +302,7 @@ pub fn optAbstract(
     dflt: Abstract(ValueType),
 ) Abstract(ValueType) {
     return c.janet_optabstract(
-        Janet.toCPtr(argv),
+        Janet.toConstPtr(argv),
         argc,
         n,
         at.toC(),
@@ -310,13 +310,13 @@ pub fn optAbstract(
     ) orelse unreachable;
 }
 pub fn optArray(argv: [*]const Janet, argc: i32, n: i32, dflt_len: i32) *Array {
-    return Array.fromC(c.janet_optarray(Janet.toCPtr(argv), argc, n, dflt_len));
+    return Array.fromC(c.janet_optarray(Janet.toConstPtr(argv), argc, n, dflt_len));
 }
 pub fn optTable(argv: [*]const Janet, argc: i32, n: i32, dflt_len: i32) *Table {
-    return Table.fromC(c.janet_opttable(Janet.toCPtr(argv), argc, n, dflt_len));
+    return Table.fromC(c.janet_opttable(Janet.toConstPtr(argv), argc, n, dflt_len));
 }
 pub fn optBuffer(argv: [*]const Janet, argc: i32, n: i32, dflt_len: i32) *Buffer {
-    return Buffer.fromC(c.janet_optbuffer(Janet.toCPtr(argv), argc, n, dflt_len));
+    return Buffer.fromC(c.janet_optbuffer(Janet.toConstPtr(argv), argc, n, dflt_len));
 }
 
 pub fn mark(x: Janet) void {
@@ -607,7 +607,7 @@ const JanetMixin = struct {
     pub fn toC(janet: *const Janet) c.Janet {
         return @ptrCast(*const c.Janet, janet).*;
     }
-    pub fn toCPtr(janet: [*]const Janet) [*c]const c.Janet {
+    pub fn toConstPtr(janet: [*]const Janet) [*c]const c.Janet {
         return @ptrCast([*c]const c.Janet, janet);
     }
 
@@ -1389,7 +1389,7 @@ pub const Function = extern struct {
         const signal = @ptrCast(*Signal, &c.janet_pcall(
             fun.toC(),
             @intCast(i32, argv.len),
-            Janet.toCPtr(argv.ptr),
+            Janet.toConstPtr(argv.ptr),
             @ptrCast(*c.Janet, out),
             @ptrCast([*c][*c]c.JanetFiber, fiber),
         )).*;
@@ -1401,7 +1401,7 @@ pub const Function = extern struct {
     pub fn call(fun: *Function, argv: []const Janet) Signal.Error!void {
         const signal = @ptrCast(
             *Signal,
-            &c.janet_call(fun.toC(), @intCast(i32, argv.len), Janet.toCPtr(argv.ptr)),
+            &c.janet_call(fun.toC(), @intCast(i32, argv.len), Janet.toConstPtr(argv.ptr)),
         ).*;
         switch (signal) {
             .ok => {},
