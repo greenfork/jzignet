@@ -131,10 +131,10 @@ pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
 pub fn panic(message: [:0]const u8) noreturn {
     c.janet_panic(message.ptr);
 }
-pub fn printf(message: [:0]const u8) void {
+pub fn print(message: [:0]const u8) void {
     c.janet_dynprintf("out", std.io.getStdOut().handle, message.ptr);
 }
-pub fn eprintf(message: [:0]const u8) void {
+pub fn eprint(message: [:0]const u8) void {
     c.janet_dynprintf("err", std.io.getStdErr().handle, message.ptr);
 }
 
