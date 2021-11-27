@@ -74,8 +74,11 @@ pub fn init() !void {
 pub fn deinit() void {
     c.janet_deinit();
 }
-pub fn mcall(name: [:0]const u8, argc: i32, argv: [*]Janet) Signal.Error!void {
-    const signal = @ptrCast(*Signal, &c.janet_mcall(name.ptr, argc, @ptrCast([*c]c.Janet, argv))).*;
+pub fn mcall(name: [:0]const u8, argv: []Janet) Signal.Error!void {
+    const signal = @ptrCast(
+        *Signal,
+        &c.janet_mcall(name.ptr, @intCast(i32, argv.len), @ptrCast([*c]c.Janet, argv.ptr)),
+    ).*;
     switch (signal) {
         .ok => {},
         else => return signal.toError(),
@@ -1386,11 +1389,16 @@ pub const Function = extern struct {
         return Janet.fromC(c.janet_wrap_function(self.toC()));
     }
 
-    pub fn pcall(fun: *Function, argn: i32, argv: [*]const Janet, out: *Janet, fiber: ?**Fiber) Signal.Error!void {
+    pub fn pcall(
+        fun: *Function,
+        argv: []const Janet,
+        out: *Janet,
+        fiber: ?**Fiber,
+    ) Signal.Error!void {
         const signal = @ptrCast(*Signal, &c.janet_pcall(
             fun.toC(),
-            argn,
-            Janet.toCPtr(argv),
+            @intCast(i32, argv.len),
+            Janet.toCPtr(argv.ptr),
             @ptrCast(*c.Janet, out),
             @ptrCast([*c][*c]c.JanetFiber, fiber),
         )).*;
@@ -1399,8 +1407,11 @@ pub const Function = extern struct {
             else => return signal.toError(),
         }
     }
-    pub fn call(fun: *Function, argc: i32, argv: [*]const Janet) Signal.Error!void {
-        const signal = @ptrCast(*Signal, &c.janet_call(fun.toC(), argc, Janet.toCPtr(argv))).*;
+    pub fn call(fun: *Function, argv: []const Janet) Signal.Error!void {
+        const signal = @ptrCast(
+            *Signal,
+            &c.janet_call(fun.toC(), @intCast(i32, argv.len), Janet.toCPtr(argv.ptr)),
+        ).*;
         switch (signal) {
             .ok => {},
             else => return signal.toError(),
@@ -1469,20 +1480,20 @@ pub const Fiber = extern struct {
         return @ptrCast(*Fiber, ptr);
     }
 
-    pub fn init(callee: *Function, capacity: i32, argc: i32, argv: [*]const Janet) *Fiber {
+    pub fn init(callee: *Function, capacity: i32, argv: []const Janet) *Fiber {
         return fromC(c.janet_fiber(
             callee.toC(),
             capacity,
-            argc,
-            @ptrCast([*c]const c.Janet, argv),
+            @intCast(i32, argv.len),
+            @ptrCast([*c]const c.Janet, argv.ptr),
         ));
     }
-    pub fn reset(self: *Fiber, callee: *Function, argc: i32, argv: [*]const Janet) *Fiber {
+    pub fn reset(self: *Fiber, callee: *Function, argv: []const Janet) *Fiber {
         return fromC(c.janet_fiber_reset(
             self.toC(),
             callee.toC(),
-            argc,
-            @ptrCast([*c]const c.Janet, argv),
+            @intCast(i32, argv.len),
+            @ptrCast([*c]const c.Janet, argv.ptr),
         ));
     }
     pub fn status(self: *Fiber) Status {
@@ -2290,6 +2301,6 @@ test "function call" {
     try env.doString("+", "main", &value);
     const func = try value.unwrap(*Function);
     var sum: Janet = undefined;
-    try func.pcall(2, &[_]Janet{ Janet.wrap(i32, 2), Janet.wrap(i32, 2) }, &sum, null);
+    try func.pcall(&[_]Janet{ Janet.wrap(i32, 2), Janet.wrap(i32, 2) }, &sum, null);
     try testing.expectEqual(@as(i32, 4), try sum.unwrap(i32));
 }
