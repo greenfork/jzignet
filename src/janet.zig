@@ -895,6 +895,11 @@ pub const Buffer = extern struct {
     pub fn initDynamic(capacity: i32) *Buffer {
         return fromC(c.janet_buffer(capacity));
     }
+    pub fn initN(bytes: []const u8) *Buffer {
+        var buf = initDynamic(@intCast(i32, bytes.len));
+        buf.pushBytes(bytes);
+        return buf;
+    }
     pub fn deinit(self: *Buffer) void {
         c.janet_buffer_deinit(self.toC());
     }
@@ -1003,6 +1008,12 @@ pub const Struct = struct {
         return Struct{ .ptr = @ptrCast(TypeImpl, ptr) };
     }
 
+    pub fn initN(kvs: []const KV) Struct {
+        var st = begin(@intCast(i32, kvs.len));
+        for (kvs) |kv| put(st, kv.key, kv.value);
+        return end(st);
+    }
+
     pub fn head(self: Struct) *Head {
         const h = c.janet_struct_head(@ptrCast(*const c.JanetKV, self.toC()));
         const aligned_head = @alignCast(@alignOf(*Head), h);
@@ -1056,16 +1067,21 @@ pub const Table = extern struct {
         return @ptrCast(*Table, janet_table);
     }
 
-    /// C function: janet_table
-    pub fn initDynamic(capacity: i32) *Table {
-        return fromC(c.janet_table(capacity));
-    }
     /// C function: janet_table_init
     pub fn init(table: *Table, capacity: i32) *Table {
         return fromC(c.janet_table_init(table.toC(), capacity));
     }
+    /// C function: janet_table
+    pub fn initDynamic(capacity: i32) *Table {
+        return fromC(c.janet_table(capacity));
+    }
     pub fn initRaw(table: *Table, capacity: i32) *Table {
         return fromC(c.janet_table_init_raw(table.toC(), capacity));
+    }
+    pub fn initN(kvs: []const KV) *Table {
+        var table = initDynamic(@intCast(i32, kvs.len));
+        for (kvs) |kv| table.put(kv.key, kv.value);
+        return table;
     }
     pub fn deinit(self: *Table) void {
         self.deinit();
@@ -1163,6 +1179,9 @@ pub const Environment = extern struct {
         return @ptrCast(*Environment, table);
     }
 
+    pub fn init(replacements: ?*Environment) *Environment {
+        return coreEnv(replacements);
+    }
     pub fn coreEnv(replacements: ?*Environment) *Environment {
         return Environment.fromC(c.janet_core_env(@ptrCast([*c]c.JanetTable, replacements)));
     }

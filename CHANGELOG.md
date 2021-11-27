@@ -33,6 +33,8 @@ All changes are most probably breaking.
 * `abstract` function is moved into `Abstract.init` and `Abstract.initVoid`
 * Introduce new `Environment` struct which is same as `Table` but only allows
   operations specific to environment manipulation.
+* More data structures now have `init` or `initN` functions where `initN`
+  initializes with supplied data for collection data structures.
 
 
 * WIP Turn `Signal` return value into an error union
