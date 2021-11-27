@@ -35,6 +35,5 @@ All changes are most probably breaking.
   operations specific to environment manipulation.
 * More data structures now have `init` or `initN` functions where `initN`
   initializes with supplied data for collection data structures.
-
-
-* WIP Turn `Signal` return value into an error union
+* `Signal` return value is transformed into `Signal.Error!void` where
+  `Signal.Error` is anything but `ok` signal

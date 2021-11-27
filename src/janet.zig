@@ -31,6 +31,41 @@ pub const Signal = enum(c_int) {
     user7,
     user8,
     user9,
+
+    pub const Error = error{
+        @"error",
+        debug,
+        yield,
+        user0,
+        user1,
+        user2,
+        user3,
+        user4,
+        user5,
+        user6,
+        user7,
+        user8,
+        user9,
+    };
+
+    pub fn toError(signal: Signal) Error {
+        return switch (signal) {
+            Signal.ok => unreachable,
+            Signal.@"error" => Error.@"error",
+            Signal.debug => Error.debug,
+            Signal.yield => Error.yield,
+            Signal.user0 => Error.user0,
+            Signal.user1 => Error.user1,
+            Signal.user2 => Error.user2,
+            Signal.user3 => Error.user3,
+            Signal.user4 => Error.user4,
+            Signal.user5 => Error.user5,
+            Signal.user6 => Error.user6,
+            Signal.user7 => Error.user7,
+            Signal.user8 => Error.user8,
+            Signal.user9 => Error.user9,
+        };
+    }
 };
 
 pub fn init() !void {
@@ -39,8 +74,12 @@ pub fn init() !void {
 pub fn deinit() void {
     c.janet_deinit();
 }
-pub fn mcall(name: [:0]const u8, argc: i32, argv: [*]Janet) Signal {
-    return @ptrCast(*Signal, &c.janet_mcall(name.ptr, argc, @ptrCast([*c]c.Janet, argv))).*;
+pub fn mcall(name: [:0]const u8, argc: i32, argv: [*]Janet) Signal.Error!void {
+    const signal = @ptrCast(*Signal, &c.janet_mcall(name.ptr, argc, @ptrCast([*c]c.Janet, argv))).*;
+    switch (signal) {
+        .ok => {},
+        else => return signal.toError(),
+    }
 }
 
 pub const TryState = extern struct {
@@ -58,17 +97,23 @@ pub const TryState = extern struct {
     pub fn tryInit(state: *TryState) void {
         c.janet_try_init(state.toC());
     }
-    pub fn @"try"(state: *TryState) Signal {
+    pub fn @"try"(state: *TryState) Signal.Error!void {
         tryInit(state);
-        if (builtin.target.os.tag.isDarwin() or
-            builtin.target.os.tag == .freebsd or
-            builtin.target.os.tag == .openbsd or
-            builtin.target.os.tag == .netbsd or
-            builtin.target.os.tag == .dragonfly)
-        {
-            return @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
-        } else {
-            return @ptrCast(*Signal, &c.setjmp(&state.buf)).*;
+        const signal = blk: {
+            if (builtin.target.os.tag.isDarwin() or
+                builtin.target.os.tag == .freebsd or
+                builtin.target.os.tag == .openbsd or
+                builtin.target.os.tag == .netbsd or
+                builtin.target.os.tag == .dragonfly)
+            {
+                break :blk @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
+            } else {
+                break :blk @ptrCast(*Signal, &c.setjmp(&state.buf)).*;
+            }
+        };
+        switch (signal) {
+            .ok => {},
+            else => return signal.toError(),
         }
     }
     pub fn restore(state: *TryState) void {
@@ -1341,17 +1386,25 @@ pub const Function = extern struct {
         return Janet.fromC(c.janet_wrap_function(self.toC()));
     }
 
-    pub fn pcall(fun: *Function, argn: i32, argv: [*]const Janet, out: *Janet, fiber: **Fiber) Signal {
-        return @ptrCast(*Signal, &c.janet_pcall(
+    pub fn pcall(fun: *Function, argn: i32, argv: [*]const Janet, out: *Janet, fiber: ?**Fiber) Signal.Error!void {
+        const signal = @ptrCast(*Signal, &c.janet_pcall(
             fun.toC(),
             argn,
             Janet.toCPtr(argv),
             @ptrCast(*c.Janet, out),
             @ptrCast([*c][*c]c.JanetFiber, fiber),
         )).*;
+        switch (signal) {
+            .ok => {},
+            else => return signal.toError(),
+        }
     }
-    pub fn call(fun: *Function, argc: i32, argv: [*]const Janet) Signal {
-        return @ptrCast(*Signal, &c.janet_call(fun.toC(), argc, Janet.toCPtr(argv))).*;
+    pub fn call(fun: *Function, argc: i32, argv: [*]const Janet) Signal.Error!void {
+        const signal = @ptrCast(*Signal, &c.janet_call(fun.toC(), argc, Janet.toCPtr(argv))).*;
+        switch (signal) {
+            .ok => {},
+            else => return signal.toError(),
+        }
     }
 };
 
@@ -1446,19 +1499,37 @@ pub const Fiber = extern struct {
         return Janet.fromC(c.janet_wrap_fiber(self.toC()));
     }
 
-    pub fn @"continue"(fiber: *Fiber, in: Janet, out: *Janet) Signal {
-        return @ptrCast(*Signal, &c.janet_continue(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
+    pub fn @"continue"(fiber: *Fiber, in: Janet, out: *Janet) Signal.Error!void {
+        const signal = @ptrCast(
+            *Signal,
+            &c.janet_continue(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out)),
+        ).*;
+        switch (signal) {
+            .ok => {},
+            else => return signal.toError(),
+        }
     }
-    pub fn continueSignal(fiber: *Fiber, in: Janet, out: *Janet, sig: Signal) Signal {
-        return @ptrCast(*Signal, &c.janet_continue_signal(
+    pub fn continueSignal(fiber: *Fiber, in: Janet, out: *Janet, sig: Signal) Signal.Error!void {
+        const signal = @ptrCast(*Signal, &c.janet_continue_signal(
             fiber.toC(),
             in.toC(),
             @ptrCast(*c.Janet, out),
             @ptrCast(*const c.JanetSignal, &sig).*,
         )).*;
+        switch (signal) {
+            .ok => {},
+            else => return signal.toError(),
+        }
     }
-    pub fn step(fiber: *Fiber, in: Janet, out: *Janet) Signal {
-        return @ptrCast(*Signal, &c.janet_step(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
+    pub fn step(fiber: *Fiber, in: Janet, out: *Janet) Signal.Error!void {
+        const signal = @ptrCast(
+            *Signal,
+            &c.janet_step(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out)),
+        ).*;
+        switch (signal) {
+            .ok => {},
+            else => return signal.toError(),
+        }
     }
     pub fn stackstrace(fiber: *Fiber, err: Janet) void {
         c.janet_stacktrace(fiber.toC(), err.toC());
@@ -2209,4 +2280,16 @@ test "complex abstract" {
         "main",
         null,
     );
+}
+
+test "function call" {
+    try init();
+    defer deinit();
+    const env = Environment.coreEnv(null);
+    var value: Janet = undefined;
+    try env.doString("+", "main", &value);
+    const func = try value.unwrap(*Function);
+    var sum: Janet = undefined;
+    try func.pcall(2, &[_]Janet{ Janet.wrap(i32, 2), Janet.wrap(i32, 2) }, &sum, null);
+    try testing.expectEqual(@as(i32, 4), try sum.unwrap(i32));
 }
