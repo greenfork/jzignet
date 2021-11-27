@@ -350,67 +350,6 @@ pub fn gcPressure(s: usize) void {
     c.janet_gcpressure(s);
 }
 
-pub const MARSHAL_UNSAFE = c.JANET_MARSHAL_UNSAFE;
-pub fn marshal(buf: *Buffer, x: Janet, rreg: *Environment, flags: c_int) void {
-    c.janet_marshal(buf.toC(), x.toC(), rreg.toC(), flags);
-}
-pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Environment, next: [*]*const u8) Janet {
-    return Janet.fromC(c.janet_unmarshal(
-        bytes.ptr,
-        bytes.len,
-        flags,
-        reg.toC(),
-        @ptrCast([*c][*c]const u8, next),
-    ));
-}
-pub fn marshalSize(ctx: *MarshalContext, value: usize) void {
-    c.janet_marshal_size(ctx.toC(), value);
-}
-pub fn marshalInt(ctx: *MarshalContext, value: i32) void {
-    c.janet_marshal_int(ctx.toC(), value);
-}
-pub fn marshalInt64(ctx: *MarshalContext, value: i64) void {
-    c.janet_marshal_int64(ctx.toC(), value);
-}
-pub fn marshalByte(ctx: *MarshalContext, value: u8) void {
-    c.janet_marshal_byte(ctx.toC(), value);
-}
-pub fn marshalBytes(ctx: *MarshalContext, value: []const u8) void {
-    c.janet_marshal_bytes(ctx.toC(), value.ptr, value.len);
-}
-pub fn marshalJanet(ctx: *MarshalContext, value: Janet) void {
-    c.janet_marshal_janet(ctx.toC(), value.toC());
-}
-pub fn marshalAbstract(ctx: *MarshalContext, value: *c_void) void {
-    c.janet_marshal_abstract(ctx.toC(), value);
-}
-pub fn unmarshalEnsure(ctx: *MarshalContext, size: usize) void {
-    c.janet_unmarshal_ensure(ctx.toC(), size);
-}
-pub fn unmarshalSize(ctx: *MarshalContext) usize {
-    return c.janet_unmarshal_size(ctx.toC());
-}
-pub fn unmarshalInt(ctx: *MarshalContext) i32 {
-    return c.janet_unmarshal_int(ctx.toC());
-}
-pub fn unmarshalInt64(ctx: *MarshalContext) i64 {
-    return c.janet_unmarshal_int64(ctx.toC());
-}
-pub fn unmarshalByte(ctx: *MarshalContext) u8 {
-    return c.janet_unmarshal_byte(ctx.toC());
-}
-pub fn unmarshalBytes(ctx: *MarshalContext, dest: []u8) void {
-    c.janet_unmarshal_bytes(ctx.toC(), dest.ptr, dest.len);
-}
-pub fn unmarshalJanet(ctx: *MarshalContext) Janet {
-    return Janet.fromC(c.janet_unmarshal_janet(ctx.toC()));
-}
-pub fn unmarshalAbstract(ctx: *MarshalContext, size: usize) *c_void {
-    return c.janet_unmarshal_abstract(ctx.toC(), size) orelse unreachable;
-}
-pub fn unmarshalAbstractReuse(ctx: *MarshalContext, p: *c_void) void {
-    c.janet_unmarshal_abstract_reuse(ctx.toC(), p);
-}
 pub fn getAbstractType(key: Janet) *const AbstractType {
     return AbstractType.fromC(c.janet_get_abstract_type(key.toC()));
 }
@@ -1608,6 +1547,19 @@ pub const SourceMapping = extern struct {
     column: i32,
 };
 
+pub const MARSHAL_UNSAFE = c.JANET_MARSHAL_UNSAFE;
+pub fn marshal(buf: *Buffer, x: Janet, rreg: *Environment, flags: c_int) void {
+    c.janet_marshal(buf.toC(), x.toC(), rreg.toC(), flags);
+}
+pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Environment, next: [*]*const u8) Janet {
+    return Janet.fromC(c.janet_unmarshal(
+        bytes.ptr,
+        bytes.len,
+        flags,
+        reg.toC(),
+        @ptrCast([*c][*c]const u8, next),
+    ));
+}
 pub const MarshalContext = extern struct {
     m_state: *c_void,
     u_state: *c_void,
@@ -1620,6 +1572,42 @@ pub const MarshalContext = extern struct {
     }
     pub fn fromC(mc: *c.JanetMarshalContext) *MarshalContext {
         return @ptrCast(*MarshalContext, mc);
+    }
+
+    pub fn marshal(ctx: *MarshalContext, comptime T: type, value: T) void {
+        switch (T) {
+            usize => c.janet_marshal_size(ctx.toC(), value),
+            i32 => c.janet_marshal_int(ctx.toC(), value),
+            i64 => c.janet_marshal_int64(ctx.toC(), value),
+            u8 => c.janet_marshal_byte(ctx.toC(), value),
+            []const u8 => c.janet_marshal_bytes(ctx.toC(), value.ptr, value.len),
+            Janet => c.janet_marshal_janet(ctx.toC(), value.toC()),
+            *c_void => c.janet_marshal_abstract(ctx.toC(), value),
+            else => @compileError("Marshaling is not supported for '" ++ @typeName(T) ++ "'"),
+        }
+    }
+    pub fn unmarshal(ctx: *MarshalContext, comptime T: type) T {
+        return switch (T) {
+            usize => c.janet_unmarshal_size(ctx.toC()),
+            i32 => c.janet_unmarshal_int(ctx.toC()),
+            i64 => c.janet_unmarshal_int64(ctx.toC()),
+            u8 => c.janet_unmarshal_byte(ctx.toC()),
+            Janet => Janet.fromC(c.janet_unmarshal_janet(ctx.toC())),
+            else => @compileError("Unmarshaling is not supported for '" ++ @typeName(T) ++ "'"),
+        };
+    }
+
+    pub fn unmarshalEnsure(ctx: *MarshalContext, size: usize) void {
+        c.janet_unmarshal_ensure(ctx.toC(), size);
+    }
+    pub fn unmarshalBytes(ctx: *MarshalContext, dest: []u8) void {
+        c.janet_unmarshal_bytes(ctx.toC(), dest.ptr, dest.len);
+    }
+    pub fn unmarshalAbstract(ctx: *MarshalContext, size: usize) *c_void {
+        return c.janet_unmarshal_abstract(ctx.toC(), size) orelse unreachable;
+    }
+    pub fn unmarshalAbstractReuse(ctx: *MarshalContext, p: *c_void) void {
+        c.janet_unmarshal_abstract_reuse(ctx.toC(), p);
     }
 };
 
@@ -2110,14 +2098,14 @@ fn czsMarshal(st: *ComplexZigStruct, ctx: *MarshalContext) callconv(.C) void {
     Abstract(ComplexZigStruct).initFromPtr(st).marshal(ctx);
     // HACK: we can't marshal more than one abstract type, so we marshal the pointer as integer
     // since the allocator is global and will not change its pointer during program execution.
-    marshalSize(ctx, @ptrToInt(&ally));
-    marshalInt(ctx, st.counter);
+    ctx.marshal(usize, @ptrToInt(&ally));
+    ctx.marshal(i32, st.counter);
 }
 fn czsUnmarshal(ctx: *MarshalContext) callconv(.C) *ComplexZigStruct {
     const st_abstract = Abstract(ComplexZigStruct).unmarshal(ctx);
-    const allyp = unmarshalSize(ctx);
+    const allyp = ctx.unmarshal(usize);
     const ally = @intToPtr(**std.mem.Allocator, allyp);
-    const counter = unmarshalInt(ctx);
+    const counter = ctx.unmarshal(i32);
     st_abstract.ptr.counter = counter;
     st_abstract.ptr.storage = std.StringHashMap(Janet).init(ally.*);
     return st_abstract.ptr;
