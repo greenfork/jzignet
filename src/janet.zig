@@ -39,37 +39,8 @@ pub fn init() !void {
 pub fn deinit() void {
     c.janet_deinit();
 }
-pub fn @"continue"(fiber: *Fiber, in: Janet, out: *Janet) Signal {
-    return @ptrCast(*Signal, &c.janet_continue(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
-}
-pub fn continueSignal(fiber: *Fiber, in: Janet, out: *Janet, sig: Signal) Signal {
-    return @ptrCast(*Signal, &c.janet_continue_signal(
-        fiber.toC(),
-        in.toC(),
-        @ptrCast(*c.Janet, out),
-        @ptrCast(*const c.JanetSignal, &sig).*,
-    )).*;
-}
-pub fn pcall(fun: *Function, argn: i32, argv: [*]const Janet, out: *Janet, fiber: **Fiber) Signal {
-    return @ptrCast(*Signal, &c.janet_pcall(
-        fun.toC(),
-        argn,
-        Janet.toCPtr(argv),
-        @ptrCast(*c.Janet, out),
-        @ptrCast([*c][*c]c.JanetFiber, fiber),
-    )).*;
-}
-pub fn step(fiber: *Fiber, in: Janet, out: *Janet) Signal {
-    return @ptrCast(*Signal, &c.janet_step(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
-}
-pub fn call(fun: *Function, argc: i32, argv: [*]const Janet) Signal {
-    return @ptrCast(*Signal, &c.janet_call(fun.toC(), argc, Janet.toCPtr(argv))).*;
-}
 pub fn mcall(name: [:0]const u8, argc: i32, argv: [*]Janet) Signal {
     return @ptrCast(*Signal, &c.janet_mcall(name.ptr, argc, @ptrCast([*c]c.Janet, argv))).*;
-}
-pub fn stackstrace(fiber: *Fiber, err: Janet) void {
-    c.janet_stacktrace(fiber.toC(), err.toC());
 }
 
 pub fn coreEnv(replacements: ?*Table) *Table {
@@ -146,27 +117,27 @@ pub const TryState = extern struct {
     pub fn toC(self: *TryState) *c.JanetTryState {
         return @ptrCast(*c.JanetTryState, self);
     }
+    pub fn tryInit(state: *TryState) void {
+        c.janet_try_init(state.toC());
+    }
+    pub fn @"try"(state: *TryState) Signal {
+        tryInit(state);
+        if (builtin.target.os.tag.isDarwin() or
+            builtin.target.os.tag == .freebsd or
+            builtin.target.os.tag == .openbsd or
+            builtin.target.os.tag == .netbsd or
+            builtin.target.os.tag == .dragonfly)
+        {
+            return @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
+        } else {
+            return @ptrCast(*Signal, &c.setjmp(&state.buf)).*;
+        }
+    }
+    pub fn restore(state: *TryState) void {
+        c.janet_restore(state.toC());
+    }
 };
 
-pub fn tryInit(state: *TryState) void {
-    c.janet_try_init(state.toC());
-}
-pub fn @"try"(state: *TryState) Signal {
-    tryInit(state);
-    if (builtin.target.os.tag.isDarwin() or
-        builtin.target.os.tag == .freebsd or
-        builtin.target.os.tag == .openbsd or
-        builtin.target.os.tag == .netbsd or
-        builtin.target.os.tag == .dragonfly)
-    {
-        return @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
-    } else {
-        return @ptrCast(*Signal, &c.setjmp(&state.buf)).*;
-    }
-}
-pub fn restore(state: *TryState) void {
-    c.janet_restore(state.toC());
-}
 pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
     return c.janet_sorted_keys(@ptrCast([*c]const c.JanetKV, dict), cap, index_buffer);
 }
@@ -1318,6 +1289,19 @@ pub const Function = extern struct {
     pub fn wrap(self: *Function) Janet {
         return Janet.fromC(c.janet_wrap_function(self.toC()));
     }
+
+    pub fn pcall(fun: *Function, argn: i32, argv: [*]const Janet, out: *Janet, fiber: **Fiber) Signal {
+        return @ptrCast(*Signal, &c.janet_pcall(
+            fun.toC(),
+            argn,
+            Janet.toCPtr(argv),
+            @ptrCast(*c.Janet, out),
+            @ptrCast([*c][*c]c.JanetFiber, fiber),
+        )).*;
+    }
+    pub fn call(fun: *Function, argc: i32, argv: [*]const Janet) Signal {
+        return @ptrCast(*Signal, &c.janet_call(fun.toC(), argc, Janet.toCPtr(argv))).*;
+    }
 };
 
 pub const CFunction = struct {
@@ -1409,6 +1393,24 @@ pub const Fiber = extern struct {
 
     pub fn wrap(self: *Fiber) Janet {
         return Janet.fromC(c.janet_wrap_fiber(self.toC()));
+    }
+
+    pub fn @"continue"(fiber: *Fiber, in: Janet, out: *Janet) Signal {
+        return @ptrCast(*Signal, &c.janet_continue(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
+    }
+    pub fn continueSignal(fiber: *Fiber, in: Janet, out: *Janet, sig: Signal) Signal {
+        return @ptrCast(*Signal, &c.janet_continue_signal(
+            fiber.toC(),
+            in.toC(),
+            @ptrCast(*c.Janet, out),
+            @ptrCast(*const c.JanetSignal, &sig).*,
+        )).*;
+    }
+    pub fn step(fiber: *Fiber, in: Janet, out: *Janet) Signal {
+        return @ptrCast(*Signal, &c.janet_step(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out))).*;
+    }
+    pub fn stackstrace(fiber: *Fiber, err: Janet) void {
+        c.janet_stacktrace(fiber.toC(), err.toC());
     }
 };
 
