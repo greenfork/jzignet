@@ -44,3 +44,5 @@ All changes are most probably breaking.
 * `printf` -> `print`, `eprintf` -> `eprint`.
 * `registerAbstractType` is removed in favor of just `register`.
 * Marshal/unmarshal type-specific functions live inside `MarshalContext`.
+* `getType` and `optType` functions are reworked to receive type as the
+  very first argument.
