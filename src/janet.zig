@@ -472,78 +472,6 @@ const JanetMixin = struct {
         return @ptrCast([*c]const c.Janet, janet);
     }
 
-    pub fn unwrap(janet: Janet, comptime T: type) !T {
-        switch (T) {
-            i32 => {
-                if (!janet.checkType(.number)) return error.NotNumber;
-                return c.janet_unwrap_integer(janet.toC());
-            },
-            f64 => {
-                if (!janet.checkType(.number)) return error.NotNumber;
-                return c.janet_unwrap_number(janet.toC());
-            },
-            bool => {
-                if (!janet.checkType(.boolean)) return error.NotBoolean;
-                return c.janet_unwrap_boolean(janet.toC()) > 0;
-            },
-            String => {
-                if (!janet.checkType(.string)) return error.NotString;
-                return String.fromC(c.janet_unwrap_string(janet.toC()));
-            },
-            Keyword => {
-                if (!janet.checkType(.keyword)) return error.NotKeyword;
-                return Keyword.fromC(c.janet_unwrap_keyword(janet.toC()));
-            },
-            Symbol => {
-                if (!janet.checkType(.symbol)) return error.NotSymbol;
-                return Symbol.fromC(c.janet_unwrap_symbol(janet.toC()));
-            },
-            Tuple => {
-                if (!janet.checkType(.tuple)) return error.NotTuple;
-                return Tuple.fromC(c.janet_unwrap_tuple(janet.toC()));
-            },
-            *Array => {
-                if (!janet.checkType(.array)) return error.NotArray;
-                return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
-            },
-            *Buffer => {
-                if (!janet.checkType(.buffer)) return error.NotBuffer;
-                return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
-            },
-            Struct => {
-                if (!janet.checkType(.@"struct")) return error.NotStruct;
-                return Struct.fromC(c.janet_unwrap_struct(janet.toC()));
-            },
-            *Table => {
-                if (!janet.checkType(.table)) return error.NotTable;
-                return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
-            },
-            *c_void => {
-                if (!janet.checkType(.pointer)) return error.NotPointer;
-                return c.janet_unwrap_pointer(janet.toC()) orelse unreachable;
-            },
-            CFunction => {
-                if (!janet.checkType(.cfunction)) return error.NotCFunction;
-                return CFunction.fromC(c.janet_unwrap_cfunction(janet.toC()));
-            },
-            *Function => {
-                if (!janet.checkType(.function)) return error.NotFunction;
-                return Function.fromC(c.janet_unwrap_function(janet.toC()) orelse unreachable);
-            },
-            *Fiber => {
-                if (!janet.checkType(.fiber)) return error.NotFiber;
-                return Fiber.fromC(c.janet_unwrap_fiber(janet.toC()) orelse unreachable);
-            },
-            AbstractType => @compileError("Please use 'unwrapAbstract' instead"),
-            else => @compileError("Unwrapping is not supported for '" ++ @typeName(T) ++ "'"),
-        }
-        unreachable;
-    }
-    pub fn unwrapAbstract(janet: Janet, comptime ValueType: type) !Abstract(ValueType) {
-        if (!janet.checkType(.abstract)) return error.NotAbstract;
-        return Abstract(ValueType).fromC(c.janet_unwrap_abstract(janet.toC()) orelse unreachable);
-    }
-
     pub fn checkType(janet: Janet, typ: JanetType) bool {
         return c.janet_checktype(janet.toC(), @ptrCast(*const c.JanetType, &typ).*) > 0;
     }
@@ -679,6 +607,78 @@ const JanetMixin = struct {
             []const u8 => string(value),
             else => @compileError("Wrapping is not supported for '" ++ @typeName(T) ++ "'"),
         };
+    }
+
+    pub fn unwrap(janet: Janet, comptime T: type) !T {
+        switch (T) {
+            i32 => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                return c.janet_unwrap_integer(janet.toC());
+            },
+            f64 => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                return c.janet_unwrap_number(janet.toC());
+            },
+            bool => {
+                if (!janet.checkType(.boolean)) return error.NotBoolean;
+                return c.janet_unwrap_boolean(janet.toC()) > 0;
+            },
+            String => {
+                if (!janet.checkType(.string)) return error.NotString;
+                return String.fromC(c.janet_unwrap_string(janet.toC()));
+            },
+            Keyword => {
+                if (!janet.checkType(.keyword)) return error.NotKeyword;
+                return Keyword.fromC(c.janet_unwrap_keyword(janet.toC()));
+            },
+            Symbol => {
+                if (!janet.checkType(.symbol)) return error.NotSymbol;
+                return Symbol.fromC(c.janet_unwrap_symbol(janet.toC()));
+            },
+            Tuple => {
+                if (!janet.checkType(.tuple)) return error.NotTuple;
+                return Tuple.fromC(c.janet_unwrap_tuple(janet.toC()));
+            },
+            *Array => {
+                if (!janet.checkType(.array)) return error.NotArray;
+                return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
+            },
+            *Buffer => {
+                if (!janet.checkType(.buffer)) return error.NotBuffer;
+                return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
+            },
+            Struct => {
+                if (!janet.checkType(.@"struct")) return error.NotStruct;
+                return Struct.fromC(c.janet_unwrap_struct(janet.toC()));
+            },
+            *Table => {
+                if (!janet.checkType(.table)) return error.NotTable;
+                return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
+            },
+            *c_void => {
+                if (!janet.checkType(.pointer)) return error.NotPointer;
+                return c.janet_unwrap_pointer(janet.toC()) orelse unreachable;
+            },
+            CFunction => {
+                if (!janet.checkType(.cfunction)) return error.NotCFunction;
+                return CFunction.fromC(c.janet_unwrap_cfunction(janet.toC()));
+            },
+            *Function => {
+                if (!janet.checkType(.function)) return error.NotFunction;
+                return Function.fromC(c.janet_unwrap_function(janet.toC()) orelse unreachable);
+            },
+            *Fiber => {
+                if (!janet.checkType(.fiber)) return error.NotFiber;
+                return Fiber.fromC(c.janet_unwrap_fiber(janet.toC()) orelse unreachable);
+            },
+            AbstractType => @compileError("Please use 'unwrapAbstract' instead"),
+            else => @compileError("Unwrapping is not supported for '" ++ @typeName(T) ++ "'"),
+        }
+        unreachable;
+    }
+    pub fn unwrapAbstract(janet: Janet, comptime ValueType: type) !Abstract(ValueType) {
+        if (!janet.checkType(.abstract)) return error.NotAbstract;
+        return Abstract(ValueType).fromC(c.janet_unwrap_abstract(janet.toC()) orelse unreachable);
     }
 };
 
