@@ -981,6 +981,7 @@ pub const Struct = struct {
         length: i32,
         hash: i32,
         capacity: i32,
+        proto: ?[*]const KV,
         data: [*]const KV,
     };
 
@@ -1017,6 +1018,26 @@ pub const Struct = struct {
     }
     pub fn get(self: Struct, key: Janet) ?Janet {
         const value = Janet.fromC(c.janet_struct_get(self.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+    pub fn getEx(self: Struct, key: Janet, which: *Struct) ?Janet {
+        const value = Janet.fromC(c.janet_struct_get_ex(
+            self.toC(),
+            key.toC(),
+            @ptrCast([*c]c.JanetStruct, &which.ptr),
+        ));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
+    }
+    pub fn rawGet(self: Struct, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_struct_rawget(self.toC(), key.toC()));
         if (value.checkType(.nil)) {
             return null;
         } else {
@@ -1261,7 +1282,7 @@ pub const Environment = extern struct {
 
 pub const GCObject = extern struct {
     flags: i32,
-    blocks: extern union {
+    data: extern union {
         next: *GCObject,
         refcount: i32,
     },

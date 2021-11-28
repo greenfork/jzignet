@@ -4,6 +4,10 @@
 
 All changes are most probably breaking.
 
+* Janet was upgraded to 1.19.0.
+
+### C API
+
 * Functions were moved into structs to be "methods":
   * `continue` into Fiber
   * `continueSignal` into Fiber
