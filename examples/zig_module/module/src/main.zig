@@ -100,8 +100,8 @@ export fn _janet_init(env: *j.Environment) void {
 }
 
 // This function must mirror the `_janet_init` and it is used by static compilation.
-// The name must be exactly as specified in `project.janet`:
-// `:static-entry "janet_module_entry_zig_module"`.
+// The last part of the name must be exactly as specified in `project.janet`, `declare-native`:
+// `:name "zig_module"` -> `janet_module_entry_zig_module`.
 export fn janet_module_entry_zig_module(env: *j.Environment) void {
     // Import previously defined Zig functions into `env`.
     env.cfuns("zig_module", &cfuns_zig);

@@ -1,6 +1,5 @@
 (declare-project
- :name "janet_exec"
- :author "Dmitry Matveyev <dev@greenfork.me>")
+ :name "janet_exec")
 
 (declare-executable
  :name "janet_exec"
