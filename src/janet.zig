@@ -586,12 +586,15 @@ const JanetMixin = struct {
     pub fn numberSafe(x: f64) Janet {
         return Janet.fromC(c.janet_wrap_number_safe(x));
     }
+
     pub fn wrap(comptime T: type, value: T) Janet {
         return switch (T) {
             f64 => Janet.fromC(c.janet_wrap_number(value)),
-            // janet_wrap_integer symbol is not present when compiling with JANET_NO_NANBOX.
+            u32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
             i32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-            bool => if (value) Janet.fromC(c.janet_wrap_true()) else Janet.fromC(c.janet_wrap_false()),
+            i64 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+            usize => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+            bool => if (value) fromC(c.janet_wrap_true()) else fromC(c.janet_wrap_false()),
             String => value.wrap(),
             Symbol => value.wrap(),
             Keyword => value.wrap(),
@@ -611,13 +614,29 @@ const JanetMixin = struct {
 
     pub fn unwrap(janet: Janet, comptime T: type) !T {
         switch (T) {
+            f64 => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                return c.janet_unwrap_number(janet.toC());
+            },
+            u32 => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                const value = c.janet_unwrap_integer(janet.toC());
+                if (value < 0) return error.NegativeValue;
+                return @intCast(u32, value);
+            },
             i32 => {
                 if (!janet.checkType(.number)) return error.NotNumber;
                 return c.janet_unwrap_integer(janet.toC());
             },
-            f64 => {
+            i64 => {
                 if (!janet.checkType(.number)) return error.NotNumber;
-                return c.janet_unwrap_number(janet.toC());
+                return @intCast(i64, c.janet_unwrap_integer(janet.toC()));
+            },
+            usize => {
+                if (!janet.checkType(.number)) return error.NotNumber;
+                const value = c.janet_unwrap_integer(janet.toC());
+                if (value < 0) return error.NegativeValue;
+                return @intCast(usize, value);
             },
             bool => {
                 if (!janet.checkType(.boolean)) return error.NotBoolean;
