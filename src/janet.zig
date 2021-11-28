@@ -137,7 +137,7 @@ pub fn eprint(message: [:0]const u8) void {
 pub fn arity(ary: i32, min: i32, max: i32) void {
     c.janet_arity(ary, min, max);
 }
-pub fn fixarity(ary: i32, fix: i32) void {
+pub fn fixArity(ary: i32, fix: i32) void {
     c.janet_fixarity(ary, fix);
 }
 
@@ -1971,7 +1971,7 @@ fn cfunZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 
 /// `inc` wrapper which receives a struct and a number to increase the `counter` to.
 fn cfunInc(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
-    fixarity(argc, 2);
+    fixArity(argc, 2);
     var st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
     const n = get(u32, argv, 1);
     st_abstract.ptr.inc(n);
@@ -1980,7 +1980,7 @@ fn cfunInc(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 
 /// `dec` wrapper which fails if we try to decrease the `counter` below 0.
 fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
-    fixarity(argc, 1);
+    fixArity(argc, 1);
     var st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
     st_abstract.ptr.dec() catch {
         panic("expected failure, part of the test");
@@ -1990,7 +1990,7 @@ fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 
 /// Simple getter returning an integer value.
 fn cfunGetcounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
-    fixarity(argc, 1);
+    fixArity(argc, 1);
     const st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
     return Janet.wrap(i32, @bitCast(i32, st_abstract.ptr.counter));
 }
@@ -2041,7 +2041,7 @@ const AllyAbstractType = Abstract(*std.mem.Allocator).Type{ .name = "zig-allocat
 /// Initializer to make Zig's allocator into existence.
 fn cfunInitZigAllocator(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     _ = argv;
-    fixarity(argc, 0);
+    fixArity(argc, 0);
     const ally_abstract = Abstract(*std.mem.Allocator).init(&AllyAbstractType);
     // This will have to be a global definition of an allocator, otherwise it is impossible
     // to get one inside this function. Here we are fine since `testing` has a global allocator.
@@ -2172,7 +2172,7 @@ fn czsNext(st: *ComplexZigStruct, key: Janet) callconv(.C) Janet {
 }
 // We set the counter to the supplied value.
 fn czsCall(st: *ComplexZigStruct, argc: i32, argv: [*]Janet) callconv(.C) Janet {
-    fixarity(argc, 1);
+    fixArity(argc, 1);
     const new_counter = get(i32, argv, 0);
     st.counter = new_counter;
     return Janet.wrap(bool, true);
@@ -2195,7 +2195,7 @@ const complex_zig_struct_abstract_type = Abstract(ComplexZigStruct).Type{
 
 /// Initializer with an optional default value for the `counter`.
 fn cfunComplexZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
-    fixarity(argc, 1);
+    fixArity(argc, 1);
     const st_abstract = Abstract(ComplexZigStruct).init(&complex_zig_struct_abstract_type);
     const ally_abstract = getAbstract(argv, 0, *std.mem.Allocator, &AllyAbstractType);
     st_abstract.ptr.* = ComplexZigStruct.init(ally_abstract.ptr.*);
@@ -2203,7 +2203,7 @@ fn cfunComplexZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 }
 /// Simple getter returning an integer value.
 fn cfunGetComplexCounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
-    fixarity(argc, 1);
+    fixArity(argc, 1);
     const st_abstract = getAbstract(argv, 0, ComplexZigStruct, &complex_zig_struct_abstract_type);
     return Janet.wrap(i32, st_abstract.ptr.counter);
 }

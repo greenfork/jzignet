@@ -52,3 +52,4 @@ All changes are most probably breaking.
 * `in`, `get`, `next`, `getIndex` functions have their return type changed
   `Janet`->`?Janet`.
 * `JanetType` is now `Janet.Type`.
+* `fixarity` renamed to `fixArity`.
