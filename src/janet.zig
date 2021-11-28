@@ -296,10 +296,6 @@ pub fn gcPressure(s: usize) void {
     c.janet_gcpressure(s);
 }
 
-pub fn getAbstractType(key: Janet) *const AbstractType {
-    return AbstractType.fromC(c.janet_get_abstract_type(key.toC()));
-}
-
 // Waiting for "Allocgate", new model of allocators for Zig. After that we can wrap these
 // into idiomatic Zig allocators.
 pub fn malloc(size: usize) ?*c_void {
@@ -559,6 +555,9 @@ const JanetMixin = struct {
     }
     pub fn janetType(janet: Janet) JanetType {
         return @ptrCast(*JanetType, &c.janet_type(janet.toC())).*;
+    }
+    pub fn getAbstractType(janet: Janet) *const AbstractType {
+        return AbstractType.fromC(c.janet_get_abstract_type(janet.toC()));
     }
 
     pub fn in(ds: Janet, key: Janet) Janet {
