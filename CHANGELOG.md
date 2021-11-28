@@ -51,3 +51,4 @@ All changes are most probably breaking.
 * `getAbstractType` is moved inside `Janet`.
 * `in`, `get`, `next`, `getIndex` functions have their return type changed
   `Janet`->`?Janet`.
+* `JanetType` is now `Janet.Type`.

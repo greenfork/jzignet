@@ -379,22 +379,22 @@ const JanetType = enum(c_int) {
     pointer,
 };
 
-pub const TFLAG_NIL = (1 << @enumToInt(JanetType.nil));
-pub const TFLAG_BOOLEAN = (1 << @enumToInt(JanetType.boolean));
-pub const TFLAG_FIBER = (1 << @enumToInt(JanetType.fiber));
-pub const TFLAG_NUMBER = (1 << @enumToInt(JanetType.number));
-pub const TFLAG_STRING = (1 << @enumToInt(JanetType.string));
-pub const TFLAG_SYMBOL = (1 << @enumToInt(JanetType.symbol));
-pub const TFLAG_KEYWORD = (1 << @enumToInt(JanetType.keyword));
-pub const TFLAG_ARRAY = (1 << @enumToInt(JanetType.array));
-pub const TFLAG_TUPLE = (1 << @enumToInt(JanetType.tuple));
-pub const TFLAG_TABLE = (1 << @enumToInt(JanetType.table));
-pub const TFLAG_STRUCT = (1 << @enumToInt(JanetType.@"struct"));
-pub const TFLAG_BUFFER = (1 << @enumToInt(JanetType.buffer));
-pub const TFLAG_FUNCTION = (1 << @enumToInt(JanetType.function));
-pub const TFLAG_CFUNCTION = (1 << @enumToInt(JanetType.cfunction));
-pub const TFLAG_ABSTRACT = (1 << @enumToInt(JanetType.abstract));
-pub const TFLAG_POINTER = (1 << @enumToInt(JanetType.pointer));
+pub const TFLAG_NIL = (1 << @enumToInt(Janet.Type.nil));
+pub const TFLAG_BOOLEAN = (1 << @enumToInt(Janet.Type.boolean));
+pub const TFLAG_FIBER = (1 << @enumToInt(Janet.Type.fiber));
+pub const TFLAG_NUMBER = (1 << @enumToInt(Janet.Type.number));
+pub const TFLAG_STRING = (1 << @enumToInt(Janet.Type.string));
+pub const TFLAG_SYMBOL = (1 << @enumToInt(Janet.Type.symbol));
+pub const TFLAG_KEYWORD = (1 << @enumToInt(Janet.Type.keyword));
+pub const TFLAG_ARRAY = (1 << @enumToInt(Janet.Type.array));
+pub const TFLAG_TUPLE = (1 << @enumToInt(Janet.Type.tuple));
+pub const TFLAG_TABLE = (1 << @enumToInt(Janet.Type.table));
+pub const TFLAG_STRUCT = (1 << @enumToInt(Janet.Type.@"struct"));
+pub const TFLAG_BUFFER = (1 << @enumToInt(Janet.Type.buffer));
+pub const TFLAG_FUNCTION = (1 << @enumToInt(Janet.Type.function));
+pub const TFLAG_CFUNCTION = (1 << @enumToInt(Janet.Type.cfunction));
+pub const TFLAG_ABSTRACT = (1 << @enumToInt(Janet.Type.abstract));
+pub const TFLAG_POINTER = (1 << @enumToInt(Janet.Type.pointer));
 
 // Some abstractions
 pub const TFLAG_BYTES = TFLAG_STRING | TFLAG_SYMBOL | TFLAG_BUFFER | TFLAG_KEYWORD;
@@ -416,8 +416,9 @@ pub const Janet = blk: {
                 pointer: *c_void,
                 cpointer: *const c_void,
             },
-            @"type": c.JanetType,
+            @"type": Type,
 
+            pub const Type = JanetType;
             pub usingnamespace JanetMixin;
         };
     } else if (builtin.target.cpu.arch == .x86_64) {
@@ -427,6 +428,7 @@ pub const Janet = blk: {
             number: f64,
             pointer: *c_void,
 
+            pub const Type = JanetType;
             pub usingnamespace JanetMixin;
         };
     } else if (builtin.target.cpu.arch.endianess() == .Big) {
@@ -441,6 +443,7 @@ pub const Janet = blk: {
             number: f64,
             @"u64": u64,
 
+            pub const Type = JanetType;
             pub usingnamespace JanetMixin;
         };
     } else if (builtin.target.cpu.arch.endianess() == .Little) {
@@ -455,6 +458,7 @@ pub const Janet = blk: {
             number: f64,
             @"u64": u64,
 
+            pub const Type = JanetType;
             pub usingnamespace JanetMixin;
         };
     }
@@ -471,7 +475,7 @@ const JanetMixin = struct {
         return @ptrCast([*c]const c.Janet, janet);
     }
 
-    pub fn checkType(janet: Janet, typ: JanetType) bool {
+    pub fn checkType(janet: Janet, typ: Janet.Type) bool {
         return c.janet_checktype(janet.toC(), @ptrCast(*const c.JanetType, &typ).*) > 0;
     }
     pub fn checkTypes(janet: Janet, typeflags: i32) bool {
@@ -480,8 +484,8 @@ const JanetMixin = struct {
     pub fn truthy(janet: Janet) bool {
         return c.janet_truthy(janet.toC()) > 0;
     }
-    pub fn janetType(janet: Janet) JanetType {
-        return @ptrCast(*JanetType, &c.janet_type(janet.toC())).*;
+    pub fn janetType(janet: Janet) Janet.Type {
+        return @ptrCast(*Janet.Type, &c.janet_type(janet.toC())).*;
     }
     pub fn getAbstractType(janet: Janet) *const AbstractType {
         return AbstractType.fromC(c.janet_get_abstract_type(janet.toC()));
@@ -1872,7 +1876,7 @@ test "janet_type" {
     defer deinit();
     const env = Environment.coreEnv(null);
     const value = try env.doString("1", "main");
-    try testing.expectEqual(JanetType.number, value.janetType());
+    try testing.expectEqual(Janet.Type.number, value.janetType());
 }
 
 test "janet_checktypes" {
