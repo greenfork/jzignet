@@ -29,7 +29,7 @@ wonderful languages:
 Currently supported versions:
 * Zig 0.8.1 for embedding
 * Zig master for embedding and writing modules in Zig
-* Janet 1.18.1 for embedding and consuming modules in Zig
+* Janet 1.19.0 for embedding and consuming modules in Zig
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
 and at [GitHub](https://github.com/greenfork/jzignet).
@@ -82,21 +82,22 @@ library.
 * `janet_` prefix is mostly not present.
 * Every type is a Zig struct and corresponding functions are called as
   methods, for example, `janet_table_get(table, key)` becomes `table.get(key)`.
-* Some Janet functions have inconsistent naming, for example, `janet_wrap_number`
-  but `janet_getnumber`. **All** bindings have idiomatic Zig naming, in this
-  example it would be `wrapNumber` and `getNumber`, it affects both function
-  names and struct member names.
+* **All** bindings have idiomatic Zig naming even when Janet uses different
+  ones, for example `arity` and `fixarity` are `arity` and `fixArity` in Zig.
 * Functions like `janet_table` are available as `Table.init`, please consult
   the source code for that.
 
 ### Semantics
 * Function return types return error sets as well as optional values where it
-  makes sense to do so, for example, `get` returns `?Janet` and `unwrapNumber`
-  returns `!i32`.
-* All types are wrapped in a struct. Most of the types support this natively
+  makes sense to do so, for example, `table.get` returns `?Janet` and `pcall`
+  returns `Signal.Error!void`.
+* All types are wrapped into structs. Most of the types support this natively
   since they are structs in C too, others (Tuple, Struct, String, Keyword,
   Symbol) cannot be represented as structs directly and they are wrappers
   with a `ptr` or `slice` field containing the original value.
+* All functions that have a type at the end, for example, `janet_get_number`,
+  instead use this signature: `get(comptime T: type, ...)`. Currently these
+  functions exist: `get`, `opt`, `wrap`, `Janet.unwrap`.
 * When you need to supply a pointer to the array and a length in the C version,
   in Zig version you need to supply just a slice since it has both the pointer
   and the length, so it's one parameter instead of two. For example,
@@ -106,11 +107,19 @@ library.
   
   becomes
   ```zig
-  pub fn doBytes(env: *Table, bytes: []const u8, source_path: [:0]const u8, out: ?*Janet) !void
+  pub fn doBytes(env: *Environment, bytes: []const u8, source_path: [:0]const u8) !Janet
   ```
 * Abstracts are fully typed, no *void pointers to @ptrCast. Take a look at
   tests for examples with abstracts, they are generally reworked to make
   them easier to use.
+* All functions returning `Signal` instead return `void` on `OK` and return
+  error otherwise with the specified signal, signature is `Signal.Error!void`.
+* `doString` and `doBytes` are aliases and return `!Janet` directly instead of
+  accepting a reference for the return value.
+* `string`, `keyword`, `symbol`, `nil` top-level functions are the only ones to
+  create these types and they do what you want.
+* `Environment` type introduced which is internally a `Table` but allows
+  conceptually different operations such as defining values and executing code.
 
 ## Completeness
 
