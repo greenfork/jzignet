@@ -124,10 +124,6 @@ pub const TryState = extern struct {
     }
 };
 
-pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
-    return c.janet_sorted_keys(@ptrCast([*c]const c.JanetKV, dict), cap, index_buffer);
-}
-
 pub fn panic(message: [:0]const u8) noreturn {
     c.janet_panic(message.ptr);
 }
@@ -328,6 +324,9 @@ pub fn sfree(ptr: *c_void) void {
     c.janet_sfree(ptr);
 }
 
+pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
+    return c.janet_sorted_keys(@ptrCast([*c]const c.JanetKV, dict), cap, index_buffer);
+}
 pub fn dictionaryGet(data: [*]const KV, cap: i32, key: Janet) ?Janet {
     const value = Janet.fromC(
         c.janet_dictionary_get(@ptrCast([*c]const c.JanetKV, data), cap, key.toC()),
