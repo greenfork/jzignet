@@ -2,9 +2,15 @@
 
 ## Development
 
+Reserved space.
+
+## 0.3.0
+
 All changes are most probably breaking.
 
 * Janet was upgraded to 1.19.0.
+* Major overhaul of C API.
+* Module example is fully automated and native to jpm.
 
 ### C API
 

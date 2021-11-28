@@ -1809,7 +1809,7 @@ test "hello world" {
     try init();
     defer deinit();
     const env = Environment.coreEnv(null);
-    _ = try env.doString("(prin `hello, world!`)", "main");
+    _ = try env.doString("(print `hello, world!`)", "main");
 }
 
 test "unwrap values" {
