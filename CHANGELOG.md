@@ -46,3 +46,5 @@ All changes are most probably breaking.
 * Marshal/unmarshal type-specific functions live inside `MarshalContext`.
 * `getType` and `optType` functions are reworked to receive type as the
   very first argument.
+* "View" functions are moved inside `Janet` struct and now return a corresponding
+  view data structure instead of getting the view from parameters by reference.

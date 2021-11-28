@@ -332,23 +332,6 @@ pub fn sfree(ptr: *c_void) void {
     c.janet_sfree(ptr);
 }
 
-pub fn indexedView(seq: Janet, data: *[*]const Janet, len: *i32) !void {
-    const rs = c.janet_indexed_view(seq.toC(), @ptrCast([*c][*c]const c.Janet, data), len);
-    if (rs <= 0) return error.CannotConstructView;
-}
-pub fn bytesView(str: Janet, data: *[*]const u8, len: *i32) !void {
-    const rs = c.janet_bytes_view(str.toC(), @ptrCast([*c][*c]const u8, data), len);
-    if (rs <= 0) return error.CannotConstructView;
-}
-pub fn dictionaryView(tab: Janet, data: *[*]const KV, len: *i32, cap: *i32) !void {
-    const rs = c.janet_dictionary_view(
-        tab.toC(),
-        @ptrCast([*c][*c]const c.JanetKV, data),
-        len,
-        cap,
-    );
-    if (rs <= 0) return error.CannotConstructView;
-}
 pub fn dictionaryGet(data: [*]const KV, cap: i32, key: Janet) ?Janet {
     const value = Janet.fromC(
         c.janet_dictionary_get(@ptrCast([*c]const c.JanetKV, data), cap, key.toC()),
@@ -601,6 +584,34 @@ const JanetMixin = struct {
     }
     pub fn putIndex(ds: Janet, index: i32, value: Janet) void {
         c.janet_putindex(ds.toC(), index, value.toC());
+    }
+
+    pub fn indexedView(seq: Janet) !View {
+        var data: [*]const Janet = undefined;
+        var len: i32 = undefined;
+        const rs = c.janet_indexed_view(seq.toC(), @ptrCast([*c][*c]const c.Janet, &data), &len);
+        if (rs <= 0) return error.CannotConstructView;
+        return View{ .items = data, .len = len };
+    }
+    pub fn bytesView(str: Janet) !ByteView {
+        var data: [*]const u8 = undefined;
+        var len: i32 = undefined;
+        const rs = c.janet_bytes_view(str.toC(), @ptrCast([*c][*c]const u8, &data), &len);
+        if (rs <= 0) return error.CannotConstructView;
+        return ByteView{ .bytes = data, .len = len };
+    }
+    pub fn dictionaryView(tab: Janet) !DictView {
+        var data: [*]const KV = undefined;
+        var len: i32 = undefined;
+        var cap: i32 = undefined;
+        const rs = c.janet_dictionary_view(
+            tab.toC(),
+            @ptrCast([*c][*c]const c.JanetKV, &data),
+            &len,
+            &cap,
+        );
+        if (rs <= 0) return error.CannotConstructView;
+        return DictView{ .kvs = data, .len = len, .cap = cap };
     }
 
     pub fn equals(x: Janet, y: Janet) bool {
@@ -1677,17 +1688,29 @@ pub const Method = extern struct {
 pub const View = extern struct {
     items: [*]const Janet,
     len: i32,
+
+    pub fn slice(self: View) []const Janet {
+        return self.items[0..self.len];
+    }
 };
 
 pub const ByteView = extern struct {
     bytes: [*]const u8,
     len: i32,
+
+    pub fn slice(self: ByteView) []const u8 {
+        return self.bytes[0..self.len];
+    }
 };
 
 pub const DictView = extern struct {
     kvs: [*]const KV,
     len: i32,
     cap: i32,
+
+    pub fn slice(self: DictView) []const KV {
+        return self.kvs[0..self.cap];
+    }
 };
 
 pub const Range = extern struct {
