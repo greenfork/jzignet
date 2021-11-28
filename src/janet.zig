@@ -153,6 +153,46 @@ pub fn nextMethod(methods: [*]const Method, key: Janet) Janet {
     return Janet.fromC(c.janet_nextmethod(@ptrCast([*c]const c.JanetMethod, methods), key.toC()));
 }
 
+pub fn nil() Janet {
+    return Janet.fromC(c.janet_wrap_nil());
+}
+pub fn keyword(str: []const u8) Janet {
+    return Janet.fromC(c.janet_keywordv(str.ptr, @intCast(i32, str.len)));
+}
+pub fn symbol(str: []const u8) Janet {
+    return Janet.fromC(c.janet_symbolv(str.ptr, @intCast(i32, str.len)));
+}
+pub fn string(str: []const u8) Janet {
+    return Janet.fromC(c.janet_stringv(str.ptr, @intCast(i32, str.len)));
+}
+pub fn numberSafe(x: f64) Janet {
+    return Janet.fromC(c.janet_wrap_number_safe(x));
+}
+pub fn wrap(comptime T: type, value: T) Janet {
+    return switch (T) {
+        f64 => Janet.fromC(c.janet_wrap_number(value)),
+        u32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+        i32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+        i64 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+        usize => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+        bool => if (value) Janet.fromC(c.janet_wrap_true()) else Janet.fromC(c.janet_wrap_false()),
+        String => value.wrap(),
+        Symbol => value.wrap(),
+        Keyword => value.wrap(),
+        *Array => value.wrap(),
+        Tuple => value.wrap(),
+        Struct => value.wrap(),
+        *Fiber => value.wrap(),
+        *Buffer => value.wrap(),
+        *Function => value.wrap(),
+        CFunction => value.wrap(),
+        *Table => value.wrap(),
+        *c_void => Janet.fromC(c.janet_wrap_pointer(value)),
+        []const u8 => string(value),
+        else => @compileError("Wrapping is not supported for '" ++ @typeName(T) ++ "'"),
+    };
+}
+
 pub fn get(comptime T: type, argv: [*]const Janet, n: i32) T {
     return switch (T) {
         f64 => c.janet_getnumber(Janet.toConstPtr(argv), n),
@@ -572,47 +612,6 @@ const JanetMixin = struct {
     }
     pub fn compare(x: Janet, y: Janet) c_int {
         return c.janet_compare(x.toC(), y.toC());
-    }
-
-    pub fn nil() Janet {
-        return Janet.fromC(c.janet_wrap_nil());
-    }
-    pub fn keyword(str: []const u8) Janet {
-        return Janet.fromC(c.janet_keywordv(str.ptr, @intCast(i32, str.len)));
-    }
-    pub fn symbol(str: []const u8) Janet {
-        return Janet.fromC(c.janet_symbolv(str.ptr, @intCast(i32, str.len)));
-    }
-    pub fn string(str: []const u8) Janet {
-        return Janet.fromC(c.janet_stringv(str.ptr, @intCast(i32, str.len)));
-    }
-    pub fn numberSafe(x: f64) Janet {
-        return Janet.fromC(c.janet_wrap_number_safe(x));
-    }
-
-    pub fn wrap(comptime T: type, value: T) Janet {
-        return switch (T) {
-            f64 => Janet.fromC(c.janet_wrap_number(value)),
-            u32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-            i32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-            i64 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-            usize => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-            bool => if (value) fromC(c.janet_wrap_true()) else fromC(c.janet_wrap_false()),
-            String => value.wrap(),
-            Symbol => value.wrap(),
-            Keyword => value.wrap(),
-            *Array => value.wrap(),
-            Tuple => value.wrap(),
-            Struct => value.wrap(),
-            *Fiber => value.wrap(),
-            *Buffer => value.wrap(),
-            *Function => value.wrap(),
-            CFunction => value.wrap(),
-            *Table => value.wrap(),
-            *c_void => Janet.fromC(c.janet_wrap_pointer(value)),
-            []const u8 => string(value),
-            else => @compileError("Wrapping is not supported for '" ++ @typeName(T) ++ "'"),
-        };
     }
 
     pub fn unwrap(janet: Janet, comptime T: type) !T {
@@ -1920,14 +1919,14 @@ test "struct" {
     const env = Environment.coreEnv(null);
     const value = try env.doString("{:kw 2 'sym 8 98 56}", "main");
     const st = try value.unwrap(Struct);
-    const first_kv = st.get(Janet.keyword("kw")).?;
-    const second_kv = st.get(Janet.symbol("sym")).?;
-    const third_kv = st.get(Janet.wrap(i32, 98)).?;
+    const first_kv = st.get(keyword("kw")).?;
+    const second_kv = st.get(symbol("sym")).?;
+    const third_kv = st.get(wrap(i32, 98)).?;
     try testing.expectEqual(@as(i32, 3), st.head().length);
     try testing.expectEqual(@as(i32, 2), try first_kv.unwrap(i32));
     try testing.expectEqual(@as(i32, 8), try second_kv.unwrap(i32));
     try testing.expectEqual(@as(i32, 56), try third_kv.unwrap(i32));
-    if (st.get(Janet.wrap(i32, 123))) |_| return error.MustBeNull;
+    if (st.get(wrap(i32, 123))) |_| return error.MustBeNull;
 }
 
 test "table" {
@@ -1937,30 +1936,30 @@ test "table" {
         const env = Environment.coreEnv(null);
         const value = try env.doString("@{:kw 2 'sym 8 98 56}", "main");
         const table = try value.unwrap(*Table);
-        const first_kv = table.get(Janet.keyword("kw")).?;
-        const second_kv = table.get(Janet.symbol("sym")).?;
-        const third_kv = table.get(Janet.wrap(i32, 98)).?;
+        const first_kv = table.get(keyword("kw")).?;
+        const second_kv = table.get(symbol("sym")).?;
+        const third_kv = table.get(wrap(i32, 98)).?;
         try testing.expectEqual(@as(i32, 3), table.count);
         try testing.expectEqual(@as(i32, 2), try first_kv.unwrap(i32));
         try testing.expectEqual(@as(i32, 8), try second_kv.unwrap(i32));
         try testing.expectEqual(@as(i32, 56), try third_kv.unwrap(i32));
-        if (table.get(Janet.wrap(i32, 123))) |_| return error.MustBeNull;
+        if (table.get(wrap(i32, 123))) |_| return error.MustBeNull;
     }
     {
         var table = Table.initDynamic(5);
-        table.put(Janet.keyword("apples"), Janet.wrap(i32, 2));
-        table.put(Janet.keyword("oranges"), Janet.wrap(i32, 8));
-        table.put(Janet.keyword("peaches"), Janet.wrap(i32, 1));
-        const apples = table.get(Janet.keyword("apples")).?;
+        table.put(keyword("apples"), wrap(i32, 2));
+        table.put(keyword("oranges"), wrap(i32, 8));
+        table.put(keyword("peaches"), wrap(i32, 1));
+        const apples = table.get(keyword("apples")).?;
         try testing.expectEqual(@as(i32, 2), try apples.unwrap(i32));
         var which_table: *Table = undefined;
-        const oranges = table.getEx(Janet.keyword("oranges"), &which_table).?;
+        const oranges = table.getEx(keyword("oranges"), &which_table).?;
         try testing.expectEqual(@as(i32, 8), try oranges.unwrap(i32));
         try testing.expectEqual(table, which_table);
-        const peaches = table.rawGet(Janet.keyword("peaches")).?;
+        const peaches = table.rawGet(keyword("peaches")).?;
         try testing.expectEqual(@as(i32, 1), try peaches.unwrap(i32));
-        _ = table.remove(Janet.keyword("peaches"));
-        if (table.get(Janet.keyword("peaches"))) |_| return error.MustBeNull;
+        _ = table.remove(keyword("peaches"));
+        if (table.get(keyword("peaches"))) |_| return error.MustBeNull;
     }
 }
 
@@ -1996,7 +1995,7 @@ fn cfunInc(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     var st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
     const n = get(u32, argv, 1);
     st_abstract.ptr.inc(n);
-    return Janet.nil();
+    return nil();
 }
 
 /// `dec` wrapper which fails if we try to decrease the `counter` below 0.
@@ -2006,14 +2005,14 @@ fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     st_abstract.ptr.dec() catch {
         panic("expected failure, part of the test");
     };
-    return Janet.nil();
+    return nil();
 }
 
 /// Simple getter returning an integer value.
 fn cfunGetcounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixArity(argc, 1);
     const st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
-    return Janet.wrap(i32, @bitCast(i32, st_abstract.ptr.counter));
+    return wrap(i32, @bitCast(i32, st_abstract.ptr.counter));
 }
 
 const zig_struct_cfuns = [_]Reg{
@@ -2168,9 +2167,9 @@ fn czsNext(st: *ComplexZigStruct, key: Janet) callconv(.C) Janet {
     if (key.checkType(.nil)) {
         var it = st.storage.keyIterator();
         if (it.next()) |next_key| {
-            return Janet.keyword(next_key.*);
+            return keyword(next_key.*);
         } else {
-            return Janet.nil();
+            return nil();
         }
     } else {
         const str_key = key.unwrap(Keyword) catch {
@@ -2180,13 +2179,13 @@ fn czsNext(st: *ComplexZigStruct, key: Janet) callconv(.C) Janet {
         while (it.next()) |k| {
             if (std.mem.eql(u8, k.*, str_key.slice)) {
                 if (it.next()) |next_key| {
-                    return Janet.keyword(next_key.*);
+                    return keyword(next_key.*);
                 } else {
-                    return Janet.nil();
+                    return nil();
                 }
             }
         } else {
-            return Janet.nil();
+            return nil();
         }
     }
     unreachable;
@@ -2196,7 +2195,7 @@ fn czsCall(st: *ComplexZigStruct, argc: i32, argv: [*]Janet) callconv(.C) Janet 
     fixArity(argc, 1);
     const new_counter = get(i32, argv, 0);
     st.counter = new_counter;
-    return Janet.wrap(bool, true);
+    return wrap(bool, true);
 }
 
 const complex_zig_struct_abstract_type = Abstract(ComplexZigStruct).Type{
@@ -2226,7 +2225,7 @@ fn cfunComplexZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 fn cfunGetComplexCounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixArity(argc, 1);
     const st_abstract = getAbstract(argv, 0, ComplexZigStruct, &complex_zig_struct_abstract_type);
-    return Janet.wrap(i32, st_abstract.ptr.counter);
+    return wrap(i32, st_abstract.ptr.counter);
 }
 
 const complex_zig_struct_cfuns = [_]Reg{
@@ -2291,6 +2290,6 @@ test "function call" {
     const value = try env.doString("+", "main");
     const func = try value.unwrap(*Function);
     var sum: Janet = undefined;
-    try func.pcall(&[_]Janet{ Janet.wrap(i32, 2), Janet.wrap(i32, 2) }, &sum, null);
+    try func.pcall(&[_]Janet{ wrap(i32, 2), wrap(i32, 2) }, &sum, null);
     try testing.expectEqual(@as(i32, 4), try sum.unwrap(i32));
 }

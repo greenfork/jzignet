@@ -59,7 +59,7 @@ fn cfunAdd(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     st_abstract.ptr.add(n);
 
     // Return nil.
-    return j.Janet.nil();
+    return j.nil();
 }
 
 // Function with a standard signature which can be imported to Janet.
@@ -71,7 +71,7 @@ fn cfunGetCounter(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     const st_abstract = j.getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
 
     // Return the counter. Notice the use of `ptr` to get to the actual Zig pointer.
-    return j.Janet.wrap(u32, st_abstract.ptr.counter);
+    return j.wrap(u32, st_abstract.ptr.counter);
 }
 
 // Declare all the functions which will be imported to Janet.

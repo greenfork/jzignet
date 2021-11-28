@@ -19,7 +19,7 @@ fn cfunAddNumbers(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     const n2 = j.get(i32, argv, 1);
 
     // Return back a Janet value.
-    return j.Janet.wrap(i32, n1 + n2);
+    return j.wrap(i32, n1 + n2);
 }
 
 // Declare all the functions which will be imported to Janet.

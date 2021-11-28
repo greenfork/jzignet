@@ -21,10 +21,10 @@ All changes are most probably breaking.
 * `wrap` function overhaul:
   * All the functions which are applicable to data structures are moved into
     these structures, for example `wrapTable` is moved into `Table.wrap()`.
-  * All the named wrap functions are moved into `Janet` with a signature
+  * All the named wrap functions are now with a signature
     `wrap(comptime T: type, value: T) Janet` so you can use it like
-    `Janet.wrap(i32, 3)`.
-  * `wrapNumberSafe` moved into `Janet.numberSafe`.
+    `wrap(i32, 3)`.
+  * `wrapNumberSafe` is renamed to `numberSafe`.
 * `unwrap` function overhaul:
   * All the functions except for abstract have changed their signature to
     `unwrap(janet: Janet, comptime T: type) !T` so you can use it like
