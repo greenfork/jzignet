@@ -12,14 +12,14 @@ comptime {
 // Function with a standard signature which can be imported to Janet.
 fn cfunAddNumbers(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     // Check that the function receives only 2 arguments.
-    j.fixarity(argc, 2);
+    j.fixArity(argc, 2);
 
     // Retrieve these arguments.
-    const n1 = j.getNumber(argv, 0);
-    const n2 = j.getNumber(argv, 1);
+    const n1 = j.get(i32, argv, 0);
+    const n2 = j.get(i32, argv, 1);
 
     // Return back a Janet value.
-    return j.wrapNumber(n1 + n2);
+    return j.Janet.wrap(i32, n1 + n2);
 }
 
 // Declare all the functions which will be imported to Janet.
@@ -34,19 +34,16 @@ pub fn main() anyerror!void {
     defer j.deinit();
 
     // Get the standard root environment.
-    const env = j.coreEnv(null);
+    const env = j.Environment.coreEnv(null);
 
     // Import previously defined Zig functions into Janet with a `zig/` prefix.
-    j.cfunsPrefix(env, "zig", &cfuns_zig);
-
-    // Allocate a Janet value on the stack for a return.
-    var value: j.Janet = undefined;
+    env.cfunsPrefix("zig", &cfuns_zig);
 
     // Use our function and save result to `value`.
-    try j.doString(env, "(zig/add-numbers 42 69)", "main", &value);
+    const value = try env.doString("(zig/add-numbers 42 69)", "main");
 
     // Transform our result from Janet object into an integer.
-    const number = value.unwrapNumber();
+    const number = value.unwrap(i32);
 
     // Ta-dam!
     std.debug.print("the true answer is {d}\n", .{number});

@@ -31,10 +31,10 @@ const zig_struct_abstract_type = ZigStructAbstract.Type{ .name = "zig-struct" };
 fn cfunInitStruct(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     _ = argv;
     // Check that the function receives no arguments.
-    j.fixarity(argc, 0);
+    j.fixArity(argc, 0);
 
     // Allocate and create an abstract type.
-    const st_abstract = j.abstract(ZigStruct, &zig_struct_abstract_type);
+    const st_abstract = ZigStructAbstract.init(&zig_struct_abstract_type);
 
     // Assign the allocated memory with our initialized struct.
     st_abstract.ptr.* = ZigStruct{ .counter = 1 };
@@ -46,32 +46,32 @@ fn cfunInitStruct(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
 // Function with a standard signature which can be imported to Janet.
 fn cfunAdd(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     // Check that the function receives exactly 2 arguments.
-    j.fixarity(argc, 2);
+    j.fixArity(argc, 2);
 
     // Retrieve the abstract type from the first argument.
     var st_abstract = j.getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
 
     // Retrieve a natural number from the second argument.
-    const n = j.getNat(argv, 1);
+    const n = j.get(u32, argv, 1);
 
     // Call the `add` function from `ZigStruct`. Notice that we need to reference `ptr`
     // to get to the actual pointer for our struct, `st_abstract` is from Janet world.
-    st_abstract.ptr.add(@intCast(u32, n));
+    st_abstract.ptr.add(n);
 
     // Return nil.
-    return j.wrapNil();
+    return j.Janet.nil();
 }
 
 // Function with a standard signature which can be imported to Janet.
 fn cfunGetCounter(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
     // Check that the function receives exactly 1 argument.
-    j.fixarity(argc, 1);
+    j.fixArity(argc, 1);
 
     // Retrieve the abstract type from the first argument.
     const st_abstract = j.getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
 
     // Return the counter. Notice the use of `ptr` to get to the actual Zig pointer.
-    return j.wrapInteger(@bitCast(i32, st_abstract.ptr.counter));
+    return j.Janet.wrap(u32, st_abstract.ptr.counter);
 }
 
 // Declare all the functions which will be imported to Janet.
@@ -94,17 +94,17 @@ export fn _janet_mod_config() j.BuildConfig {
 // Exactly this function with this signature must be exported from a Zig library.
 // In the body of this function you can do whatever you want, the main purpose
 // is to modify the `env` parameter by importing functions and variables into it.
-export fn _janet_init(env: *j.Table) void {
+export fn _janet_init(env: *j.Environment) void {
     // Import previously defined Zig functions into `env`.
-    j.cfuns(env, "zig_module", &cfuns_zig);
+    env.cfuns("zig_module", &cfuns_zig);
 }
 
 // This function must mirror the `_janet_init` and it is used by static compilation.
 // The name must be exactly as specified in `project.janet`:
 // `:static-entry "janet_module_entry_zig_module"`.
-export fn janet_module_entry_zig_module(env: *j.Table) void {
+export fn janet_module_entry_zig_module(env: *j.Environment) void {
     // Import previously defined Zig functions into `env`.
-    j.cfuns(env, "zig_module", &cfuns_zig);
+    env.cfuns("zig_module", &cfuns_zig);
 }
 
 // Testing
