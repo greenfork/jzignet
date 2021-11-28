@@ -49,3 +49,5 @@ All changes are most probably breaking.
 * "View" functions are moved inside `Janet` struct and now return a corresponding
   view data structure instead of getting the view from parameters by reference.
 * `getAbstractType` is moved inside `Janet`.
+* `in`, `get`, `next`, `getIndex` functions have their return type changed
+  `Janet`->`?Janet`.

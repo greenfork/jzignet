@@ -560,17 +560,37 @@ const JanetMixin = struct {
         return AbstractType.fromC(c.janet_get_abstract_type(janet.toC()));
     }
 
-    pub fn in(ds: Janet, key: Janet) Janet {
-        return Janet.fromC(c.janet_in(ds.toC(), key.toC()));
+    pub fn in(ds: Janet, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_in(ds.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
     }
-    pub fn get(ds: Janet, key: Janet) Janet {
-        return Janet.fromC(c.janet_get(ds.toC(), key.toC()));
+    pub fn get(ds: Janet, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_get(ds.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
     }
-    pub fn next(ds: Janet, key: Janet) Janet {
-        return Janet.fromC(c.janet_next(ds.toC(), key.toC()));
+    pub fn next(ds: Janet, key: Janet) ?Janet {
+        const value = Janet.fromC(c.janet_next(ds.toC(), key.toC()));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
     }
-    pub fn getIndex(ds: Janet, index: i32) Janet {
-        return Janet.fromC(c.janet_getindex(ds.toC(), index));
+    pub fn getIndex(ds: Janet, index: i32) ?Janet {
+        const value = Janet.fromC(c.janet_getindex(ds.toC(), index));
+        if (value.checkType(.nil)) {
+            return null;
+        } else {
+            return value;
+        }
     }
     pub fn length(x: Janet) i32 {
         return c.janet_length(x.toC());
