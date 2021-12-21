@@ -4,7 +4,7 @@ This example creates Janet script or executable using Zig module
 located at <https://github.com/greenfork/jzignet-module-template>. This
 module is supposed to be used as a template for your modules as well.
 
-Requires Zig version of at least 2021-11-20, zig executable must be in PATH.
+Requires Zig version of at least 0.9.0, zig executable must be in PATH.
 You can download the latest Zig build from <https://ziglang.org/download/>.
 You will also need Janet and jpm installed on your system
 <https://github.com/janet-lang/janet/releases>.

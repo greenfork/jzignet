@@ -187,7 +187,7 @@ pub fn wrap(comptime T: type, value: T) Janet {
         *Function => value.wrap(),
         CFunction => value.wrap(),
         *Table => value.wrap(),
-        *c_void => Janet.fromC(c.janet_wrap_pointer(value)),
+        *anyopaque => Janet.fromC(c.janet_wrap_pointer(value)),
         []const u8 => string(value),
         else => @compileError("Wrapping is not supported for '" ++ @typeName(T) ++ "'"),
     };
@@ -209,7 +209,7 @@ pub fn get(comptime T: type, argv: [*]const Janet, n: i32) T {
         Symbol => Symbol.fromC(c.janet_getsymbol(Janet.toConstPtr(argv), n)),
         Keyword => Keyword.fromC(c.janet_getkeyword(Janet.toConstPtr(argv), n)),
         *Buffer => Buffer.fromC(c.janet_getbuffer(Janet.toConstPtr(argv), n)),
-        *c_void => c.janet_getpointer(Janet.toConstPtr(argv), n) orelse unreachable,
+        *anyopaque => c.janet_getpointer(Janet.toConstPtr(argv), n) orelse unreachable,
         CFunction => CFunction.fromC(c.janet_getcfunction(Janet.toConstPtr(argv), n)),
         *Fiber => Fiber.fromC(c.janet_getfiber(Janet.toConstPtr(argv), n) orelse unreachable),
         *Function => Function.fromC(
@@ -257,7 +257,7 @@ pub fn opt(comptime T: type, argv: [*]const Janet, argc: i32, n: i32, dflt: T) T
         Symbol => Symbol.fromC(c.janet_optsymbol(Janet.toConstPtr(argv), argc, n, dflt.toC())),
         Keyword => Keyword.fromC(c.janet_optkeyword(Janet.toConstPtr(argv), argc, n, dflt.toC())),
         bool => c.janet_optboolean(Janet.toConstPtr(argv), argc, n, if (dflt) 1 else 0) > 0,
-        *c_void => c.janet_optpointer(Janet.toConstPtr(argv), argc, n, dflt) orelse unreachable,
+        *anyopaque => c.janet_optpointer(Janet.toConstPtr(argv), argc, n, dflt) orelse unreachable,
         CFunction => CFunction.fromC(
             c.janet_optcfunction(Janet.toConstPtr(argv), argc, n, dflt.toC()),
         ),
@@ -334,33 +334,33 @@ pub fn gcPressure(s: usize) void {
 
 // Waiting for "Allocgate", new model of allocators for Zig. After that we can wrap these
 // into idiomatic Zig allocators.
-pub fn malloc(size: usize) ?*c_void {
+pub fn malloc(size: usize) ?*anyopaque {
     return c.janet_malloc(size);
 }
-pub fn realloc(ptr: *c_void, size: usize) ?*c_void {
+pub fn realloc(ptr: *anyopaque, size: usize) ?*anyopaque {
     return c.janet_realloc(ptr, size);
 }
-pub fn calloc(nmemb: usize, size: usize) ?*c_void {
+pub fn calloc(nmemb: usize, size: usize) ?*anyopaque {
     return c.janet_calloc(nmemb, size);
 }
-pub fn free(ptr: *c_void) void {
+pub fn free(ptr: *anyopaque) void {
     c.janet_free(ptr);
 }
-pub const ScratchFinalizer = fn (ptr: *c_void) callconv(.C) void;
-pub const ScratchFinalizerC = fn (ptr: ?*c_void) callconv(.C) void;
-pub fn smalloc(size: usize) ?*c_void {
+pub const ScratchFinalizer = fn (ptr: *anyopaque) callconv(.C) void;
+pub const ScratchFinalizerC = fn (ptr: ?*anyopaque) callconv(.C) void;
+pub fn smalloc(size: usize) ?*anyopaque {
     return c.janet_smalloc(size);
 }
-pub fn srealloc(ptr: *c_void, size: usize) ?*c_void {
+pub fn srealloc(ptr: *anyopaque, size: usize) ?*anyopaque {
     return c.janet_srealloc(ptr, size);
 }
-pub fn scalloc(nmemb: usize, size: usize) ?*c_void {
+pub fn scalloc(nmemb: usize, size: usize) ?*anyopaque {
     return c.janet_scalloc(nmemb, size);
 }
-pub fn sfinalizer(ptr: *c_void, finalizer: ScratchFinalizer) void {
+pub fn sfinalizer(ptr: *anyopaque, finalizer: ScratchFinalizer) void {
     return c.janet_sfinalizer(ptr, @ptrCast(ScratchFinalizerC, finalizer));
 }
-pub fn sfree(ptr: *c_void) void {
+pub fn sfree(ptr: *anyopaque) void {
     c.janet_sfree(ptr);
 }
 
@@ -453,8 +453,8 @@ pub const Janet = blk: {
                 @"u64": u64,
                 number: f64,
                 integer: i32,
-                pointer: *c_void,
-                cpointer: *const c_void,
+                pointer: *anyopaque,
+                cpointer: *const anyopaque,
             },
             @"type": Type,
 
@@ -466,7 +466,7 @@ pub const Janet = blk: {
             @"u64": u64,
             @"i64": i64,
             number: f64,
-            pointer: *c_void,
+            pointer: *anyopaque,
 
             pub const Type = JanetType;
             pub usingnamespace JanetMixin;
@@ -477,7 +477,7 @@ pub const Janet = blk: {
                 @"type": u32,
                 payload: extern union {
                     integer: u32,
-                    pointer: *c_void,
+                    pointer: *anyopaque,
                 },
             },
             number: f64,
@@ -491,7 +491,7 @@ pub const Janet = blk: {
             tagged: extern struct {
                 payload: extern union {
                     integer: u32,
-                    pointer: *c_void,
+                    pointer: *anyopaque,
                 },
                 @"type": u32,
             },
@@ -676,7 +676,7 @@ const JanetMixin = struct {
                 if (!janet.checkType(.table)) return error.NotTable;
                 return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
             },
-            *c_void => {
+            *anyopaque => {
                 if (!janet.checkType(.pointer)) return error.NotPointer;
                 return c.janet_unwrap_pointer(janet.toC()) orelse unreachable;
             },
@@ -1398,7 +1398,7 @@ pub const Fiber = extern struct {
     // #ifdef JANET_EV
     waiting: *ListenerState,
     sched_id: i32,
-    supervisor_channel: *c_void,
+    supervisor_channel: *anyopaque,
 
     pub const Status = enum(c_int) {
         dead,
@@ -1499,8 +1499,8 @@ pub const ListenerState = blk: {
             machine: Listener,
             fiber: *Fiber,
             stream: *Stream,
-            event: *c_void,
-            tag: *c_void,
+            event: *anyopaque,
+            tag: *anyopaque,
             bytes: c_int,
         };
     } else {
@@ -1508,7 +1508,7 @@ pub const ListenerState = blk: {
             machine: Listener,
             fiber: *Fiber,
             stream: *Stream,
-            event: *c_void,
+            event: *anyopaque,
             _index: usize,
             _mask: c_int,
             _next: *ListenerState,
@@ -1518,7 +1518,7 @@ pub const ListenerState = blk: {
 
 pub const Handle = blk: {
     if (builtin.target.os.tag == .windows) {
-        break :blk *c_void;
+        break :blk *anyopaque;
     } else {
         break :blk c_int;
     }
@@ -1536,7 +1536,7 @@ pub const Stream = extern struct {
     handle: Handle,
     flags: u32,
     state: *ListenerState,
-    methods: *const c_void,
+    methods: *const anyopaque,
     _mask: c_int,
 };
 
@@ -1580,8 +1580,8 @@ pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Environment, next: [*]*c
     ));
 }
 pub const MarshalContext = extern struct {
-    m_state: *c_void,
-    u_state: *c_void,
+    m_state: *anyopaque,
+    u_state: *anyopaque,
     flags: c_int,
     data: [*]const u8,
     at: *AbstractType,
@@ -1601,7 +1601,7 @@ pub const MarshalContext = extern struct {
             u8 => c.janet_marshal_byte(ctx.toC(), value),
             []const u8 => c.janet_marshal_bytes(ctx.toC(), value.ptr, value.len),
             Janet => c.janet_marshal_janet(ctx.toC(), value.toC()),
-            *c_void => c.janet_marshal_abstract(ctx.toC(), value),
+            *anyopaque => c.janet_marshal_abstract(ctx.toC(), value),
             else => @compileError("Marshaling is not supported for '" ++ @typeName(T) ++ "'"),
         }
     }
@@ -1612,7 +1612,7 @@ pub const MarshalContext = extern struct {
             i64 => c.janet_unmarshal_int64(ctx.toC()),
             u8 => c.janet_unmarshal_byte(ctx.toC()),
             Janet => Janet.fromC(c.janet_unmarshal_janet(ctx.toC())),
-            *c_void => @compileError("Please use 'unmarshalAbstract' instead"),
+            *anyopaque => @compileError("Please use 'unmarshalAbstract' instead"),
             []u8, []const u8 => @compileError("Please use 'unmarshalBytes' instead"),
             else => @compileError("Unmarshaling is not supported for '" ++ @typeName(T) ++ "'"),
         };
@@ -1624,10 +1624,10 @@ pub const MarshalContext = extern struct {
     pub fn unmarshalBytes(ctx: *MarshalContext, dest: []u8) void {
         c.janet_unmarshal_bytes(ctx.toC(), dest.ptr, dest.len);
     }
-    pub fn unmarshalAbstract(ctx: *MarshalContext, size: usize) *c_void {
+    pub fn unmarshalAbstract(ctx: *MarshalContext, size: usize) *anyopaque {
         return c.janet_unmarshal_abstract(ctx.toC(), size) orelse unreachable;
     }
-    pub fn unmarshalAbstractReuse(ctx: *MarshalContext, p: *c_void) void {
+    pub fn unmarshalAbstractReuse(ctx: *MarshalContext, p: *anyopaque) void {
         c.janet_unmarshal_abstract_reuse(ctx.toC(), p);
     }
 };
@@ -1666,8 +1666,8 @@ pub fn Abstract(comptime ValueType: type) type {
             pub fn fromC(p: *const c.JanetAbstractType) *const Type {
                 return @ptrCast(*const Type, p);
             }
-            pub fn toVoid(self: *const Type) *const Abstract(c_void).Type {
-                return @ptrCast(*const Abstract(c_void).Type, self);
+            pub fn toVoid(self: *const Type) *const Abstract(anyopaque).Type {
+                return @ptrCast(*const Abstract(anyopaque).Type, self);
             }
 
             pub fn register(self: *const Type) void {
@@ -1675,15 +1675,15 @@ pub fn Abstract(comptime ValueType: type) type {
             }
         };
 
-        pub fn toC(self: Self) *c_void {
-            return @ptrCast(*c_void, self.ptr);
+        pub fn toC(self: Self) *anyopaque {
+            return @ptrCast(*anyopaque, self.ptr);
         }
-        pub fn fromC(p: *c_void) Self {
+        pub fn fromC(p: *anyopaque) Self {
             return Self{ .ptr = @ptrCast(*ValueType, @alignCast(@alignOf(*ValueType), p)) };
         }
 
         pub fn init(value: *const Type) Self {
-            if (ValueType != c_void) {
+            if (ValueType != anyopaque) {
                 return fromC(c.janet_abstract(value.toC(), @sizeOf(ValueType)) orelse unreachable);
             } else {
                 unreachable; // please use initVoid
@@ -1693,7 +1693,7 @@ pub fn Abstract(comptime ValueType: type) type {
             return Self{ .ptr = value };
         }
         pub fn initVoid(value: *const AbstractType, size: usize) Self {
-            if (ValueType == c_void) {
+            if (ValueType == anyopaque) {
                 return fromC(c.janet_abstract(value.toC(), size) orelse unreachable);
             } else {
                 unreachable; // please use init
@@ -1707,7 +1707,7 @@ pub fn Abstract(comptime ValueType: type) type {
             c.janet_marshal_abstract(ctx.toC(), self.toC());
         }
         pub fn unmarshal(ctx: *MarshalContext) Self {
-            if (ValueType != c_void) {
+            if (ValueType != anyopaque) {
                 return fromC(
                     c.janet_unmarshal_abstract(ctx.toC(), @sizeOf(ValueType)) orelse unreachable,
                 );
@@ -1718,7 +1718,7 @@ pub fn Abstract(comptime ValueType: type) type {
     };
 }
 
-pub const VoidAbstract = Abstract(c_void);
+pub const VoidAbstract = Abstract(anyopaque);
 
 /// Pure translation of a C struct with pointers *c_void.
 pub const AbstractType = VoidAbstract.Type;
@@ -1798,7 +1798,7 @@ test "refAllDecls" {
     testing.refAllDecls(Table);
     testing.refAllDecls(Struct);
     testing.refAllDecls(Tuple);
-    testing.refAllDecls(Abstract(c_void));
+    testing.refAllDecls(Abstract(anyopaque));
     testing.refAllDecls(Function);
     testing.refAllDecls(CFunction);
     testing.refAllDecls(Environment);
@@ -1883,7 +1883,7 @@ test "unwrap values" {
     }
     {
         const value = try env.doString("(file/temp)", "main");
-        _ = try value.unwrapAbstract(c_void);
+        _ = try value.unwrapAbstract(anyopaque);
     }
     {
         const value = try env.doString("(fiber/current)", "main");
@@ -2056,13 +2056,13 @@ test "abstract injected from Zig" {
 }
 
 // We need an allocator to pass to the Zig struct.
-const AllyAbstractType = Abstract(*std.mem.Allocator).Type{ .name = "zig-allocator" };
+const AllyAbstractType = Abstract(std.mem.Allocator).Type{ .name = "zig-allocator" };
 
 /// Initializer to make Zig's allocator into existence.
 fn cfunInitZigAllocator(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     _ = argv;
     fixArity(argc, 0);
-    const ally_abstract = Abstract(*std.mem.Allocator).init(&AllyAbstractType);
+    const ally_abstract = Abstract(std.mem.Allocator).init(&AllyAbstractType);
     // This will have to be a global definition of an allocator, otherwise it is impossible
     // to get one inside this function. Here we are fine since `testing` has a global allocator.
     ally_abstract.ptr.* = testing.allocator;
@@ -2076,7 +2076,7 @@ const ComplexZigStruct = struct {
     storage: std.StringHashMap(Janet),
 
     // It needs to be initialized first with the Zig's allocator.
-    pub fn init(ally: *std.mem.Allocator) ComplexZigStruct {
+    pub fn init(ally: std.mem.Allocator) ComplexZigStruct {
         return ComplexZigStruct{
             .counter = 0,
             .storage = std.StringHashMap(Janet).init(ally),
@@ -2139,7 +2139,7 @@ fn czsMarshal(st: *ComplexZigStruct, ctx: *MarshalContext) callconv(.C) void {
 fn czsUnmarshal(ctx: *MarshalContext) callconv(.C) *ComplexZigStruct {
     const st_abstract = Abstract(ComplexZigStruct).unmarshal(ctx);
     const allyp = ctx.unmarshal(usize);
-    const ally = @intToPtr(**std.mem.Allocator, allyp);
+    const ally = @intToPtr(*std.mem.Allocator, allyp);
     const counter = ctx.unmarshal(i32);
     st_abstract.ptr.counter = counter;
     st_abstract.ptr.storage = std.StringHashMap(Janet).init(ally.*);
@@ -2217,7 +2217,7 @@ const complex_zig_struct_abstract_type = Abstract(ComplexZigStruct).Type{
 fn cfunComplexZigStruct(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixArity(argc, 1);
     const st_abstract = Abstract(ComplexZigStruct).init(&complex_zig_struct_abstract_type);
-    const ally_abstract = getAbstract(argv, 0, *std.mem.Allocator, &AllyAbstractType);
+    const ally_abstract = getAbstract(argv, 0, std.mem.Allocator, &AllyAbstractType);
     st_abstract.ptr.* = ComplexZigStruct.init(ally_abstract.ptr.*);
     return st_abstract.wrap();
 }

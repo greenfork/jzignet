@@ -27,9 +27,8 @@ wonderful languages:
   operations on types use methods instead of prefixed global functions.
 
 Currently supported versions:
-* Zig 0.8.1 for embedding
-* Zig master for embedding and writing modules in Zig
-* Janet 1.19.0 for embedding and consuming modules in Zig
+* Zig 0.9.0
+* Janet 1.19.0
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
 and at [GitHub](https://github.com/greenfork/jzignet).
