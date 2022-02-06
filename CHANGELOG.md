@@ -4,6 +4,14 @@
 
 Reserved space.
 
+## 0.5.0
+
+* Janet was upgraded to 1.20.0
+
+## 0.4.0
+
+* Zig was upgraded to 0.9.0
+
 ## 0.3.0
 
 All changes are most probably breaking.

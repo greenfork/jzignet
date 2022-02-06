@@ -1491,6 +1491,9 @@ pub const Fiber = extern struct {
     pub fn stackstrace(fiber: *Fiber, err: Janet) void {
         c.janet_stacktrace(fiber.toC(), err.toC());
     }
+    pub fn stackstraceExt(fiber: *Fiber, err: Janet, prefix: [*:0]const u8) void {
+        c.janet_stacktrace_ext(fiber.toC(), err.toC(), prefix.ptr);
+    }
 };
 
 pub const ListenerState = blk: {
