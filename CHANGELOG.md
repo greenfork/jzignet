@@ -4,6 +4,10 @@
 
 Reserved space.
 
+## 0.6.0
+
+* Janet was upgraded to 1.23.0
+
 ## 0.5.0
 
 * Janet was upgraded to 1.20.0

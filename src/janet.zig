@@ -199,6 +199,7 @@ pub fn get(comptime T: type, argv: [*]const Janet, n: i32) T {
         u32 => @intCast(u32, c.janet_getnat(Janet.toConstPtr(argv), n)),
         i32 => c.janet_getinteger(Janet.toConstPtr(argv), n),
         i64 => c.janet_getinteger64(Janet.toConstPtr(argv), n),
+        u64 => c.janet_getuinteger64(Janet.toConstPtr(argv), n),
         usize => c.janet_getsize(Janet.toConstPtr(argv), n),
         bool => c.janet_getboolean(Janet.toConstPtr(argv), n) > 0,
         *Array => Array.fromC(c.janet_getarray(Janet.toConstPtr(argv), n)),
