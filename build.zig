@@ -21,14 +21,14 @@ pub fn build(b: *std.build.Builder) void {
 
     const lib = b.addStaticLibrary("jzignet", "src/janet.zig");
     lib.setBuildMode(mode);
-    lib.addIncludeDir("c");
+    lib.addIncludePath("c");
     lib.linkLibC();
     lib.linkLibrary(janet_lib);
     lib.install();
 
     var tests = b.addTest("src/janet.zig");
     tests.setBuildMode(mode);
-    tests.addIncludeDir("c");
+    tests.addIncludePath("c");
     tests.linkLibC();
     tests.linkLibrary(janet_lib);
 

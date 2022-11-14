@@ -4,9 +4,9 @@ const j = @import("jzignet");
 // Check the version, just for a more friendly error message in case Zig version
 // is too small.
 comptime {
-    const current_version = std.SemanticVersion.parse("0.9.0") catch unreachable;
+    const current_version = std.SemanticVersion.parse("0.10.0") catch unreachable;
     const comparison = @import("builtin").zig_version.order(current_version);
-    if (comparison == .lt) @compileError("Zig version must be at least 0.9.0");
+    if (comparison == .lt) @compileError("Zig version must be at least 0.10.0");
 }
 
 // Function with a standard signature which can be imported to Janet.
@@ -43,7 +43,7 @@ pub fn main() anyerror!void {
     const value = try env.doString("(zig/add-numbers 42 69)", "main");
 
     // Transform our result from Janet object into an integer.
-    const number = value.unwrap(i32);
+    const number = try value.unwrap(i32);
 
     // Ta-dam!
     std.debug.print("the true answer is {d}\n", .{number});

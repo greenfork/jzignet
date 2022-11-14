@@ -13,7 +13,7 @@ pub fn build(b: *std.build.Builder) void {
     }
     const janet = b.addStaticLibrary("janet", null);
     janet.addCSourceFile("../../c/janet.c", janet_flags.items);
-    janet.addIncludeDir("../../c");
+    janet.addIncludePath("../../c");
     janet.linkLibC();
 
     const exe = b.addExecutable("embed_janet", "src/main.zig");
@@ -24,7 +24,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.linkLibC();
     exe.linkLibrary(janet);
     exe.addPackagePath("jzignet", "../../src/janet.zig");
-    exe.addIncludeDir("../../c");
+    exe.addIncludePath("../../c");
 
     exe.install();
 

@@ -76,7 +76,7 @@ pub fn deinit() void {
 }
 pub fn mcall(name: [:0]const u8, argv: []Janet) Signal.Error!void {
     const signal = @ptrCast(
-        *Signal,
+        *const Signal,
         &c.janet_mcall(name.ptr, @intCast(i32, argv.len), @ptrCast([*c]c.Janet, argv.ptr)),
     ).*;
     switch (signal) {
@@ -347,8 +347,8 @@ pub fn calloc(nmemb: usize, size: usize) ?*anyopaque {
 pub fn free(ptr: *anyopaque) void {
     c.janet_free(ptr);
 }
-pub const ScratchFinalizer = fn (ptr: *anyopaque) callconv(.C) void;
-pub const ScratchFinalizerC = fn (ptr: ?*anyopaque) callconv(.C) void;
+pub const ScratchFinalizer = *const fn (ptr: *anyopaque) callconv(.C) void;
+pub const ScratchFinalizerC = *const fn (ptr: ?*anyopaque) callconv(.C) void;
 pub fn smalloc(size: usize) ?*anyopaque {
     return c.janet_smalloc(size);
 }
@@ -526,7 +526,7 @@ const JanetMixin = struct {
         return c.janet_truthy(janet.toC()) > 0;
     }
     pub fn janetType(janet: Janet) Janet.Type {
-        return @ptrCast(*Janet.Type, &c.janet_type(janet.toC())).*;
+        return @ptrCast(*const Janet.Type, &c.janet_type(janet.toC())).*;
     }
     pub fn getAbstractType(janet: Janet) *const AbstractType {
         return AbstractType.fromC(c.janet_get_abstract_type(janet.toC()));
@@ -1342,7 +1342,7 @@ pub const Function = extern struct {
         out: *Janet,
         fiber: ?**Fiber,
     ) Signal.Error!void {
-        const signal = @ptrCast(*Signal, &c.janet_pcall(
+        const signal = @ptrCast(*const Signal, &c.janet_pcall(
             fun.toC(),
             @intCast(i32, argv.len),
             Janet.toConstPtr(argv.ptr),
@@ -1356,7 +1356,7 @@ pub const Function = extern struct {
     }
     pub fn call(fun: *Function, argv: []const Janet) Signal.Error!void {
         const signal = @ptrCast(
-            *Signal,
+            *const Signal,
             &c.janet_call(fun.toC(), @intCast(i32, argv.len), Janet.toConstPtr(argv.ptr)),
         ).*;
         switch (signal) {
@@ -1369,8 +1369,8 @@ pub const Function = extern struct {
 pub const CFunction = struct {
     ptr: TypeImpl,
 
-    pub const TypeImpl = fn (argc: i32, argv: [*]Janet) callconv(.C) Janet;
-    pub const TypeC = fn (argc: i32, argv: [*c]c.Janet) callconv(.C) c.Janet;
+    pub const TypeImpl = *const fn (argc: i32, argv: [*]Janet) callconv(.C) Janet;
+    pub const TypeC = *const fn (argc: i32, argv: [*c]c.Janet) callconv(.C) c.Janet;
 
     pub fn toC(self: CFunction) c.JanetCFunction {
         return @ptrCast(c.JanetCFunction, self.ptr);
@@ -1544,7 +1544,7 @@ pub const Stream = extern struct {
     _mask: c_int,
 };
 
-pub const Listener = fn (state: *ListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
+pub const Listener = *const fn (state: *ListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
 
 pub const AsyncStatus = enum(c_int) {
     not_done,
@@ -1652,17 +1652,17 @@ pub fn Abstract(comptime ValueType: type) type {
         };
         pub const Type = extern struct {
             name: [*:0]const u8,
-            gc: ?fn (p: *ValueType, len: usize) callconv(.C) c_int = null,
-            gc_mark: ?fn (p: *ValueType, len: usize) callconv(.C) c_int = null,
-            get: ?fn (p: *ValueType, key: Janet, out: *Janet) callconv(.C) c_int = null,
-            put: ?fn (p: *ValueType, key: Janet, value: Janet) callconv(.C) void = null,
-            marshal: ?fn (p: *ValueType, ctx: *MarshalContext) callconv(.C) void = null,
-            unmarshal: ?fn (ctx: *MarshalContext) callconv(.C) *ValueType = null,
-            to_string: ?fn (p: *ValueType, buffer: *Buffer) callconv(.C) void = null,
-            compare: ?fn (lhs: *ValueType, rhs: *ValueType) callconv(.C) c_int = null,
-            hash: ?fn (p: *ValueType, len: usize) callconv(.C) i32 = null,
-            next: ?fn (p: *ValueType, key: Janet) callconv(.C) Janet = null,
-            call: ?fn (p: *ValueType, argc: i32, argv: [*]Janet) callconv(.C) Janet = null,
+            gc: ?*const fn (p: *ValueType, len: usize) callconv(.C) c_int = null,
+            gc_mark: ?*const fn (p: *ValueType, len: usize) callconv(.C) c_int = null,
+            get: ?*const fn (p: *ValueType, key: Janet, out: *Janet) callconv(.C) c_int = null,
+            put: ?*const fn (p: *ValueType, key: Janet, value: Janet) callconv(.C) void = null,
+            marshal: ?*const fn (p: *ValueType, ctx: *MarshalContext) callconv(.C) void = null,
+            unmarshal: ?*const fn (ctx: *MarshalContext) callconv(.C) *ValueType = null,
+            to_string: ?*const fn (p: *ValueType, buffer: *Buffer) callconv(.C) void = null,
+            compare: ?*const fn (lhs: *ValueType, rhs: *ValueType) callconv(.C) c_int = null,
+            hash: ?*const fn (p: *ValueType, len: usize) callconv(.C) i32 = null,
+            next: ?*const fn (p: *ValueType, key: Janet) callconv(.C) Janet = null,
+            call: ?*const fn (p: *ValueType, argc: i32, argv: [*]Janet) callconv(.C) Janet = null,
 
             pub fn toC(self: *const Type) *const c.JanetAbstractType {
                 return @ptrCast(*const c.JanetAbstractType, self);

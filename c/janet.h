@@ -26,10 +26,10 @@
 #define JANETCONF_H
 
 #define JANET_VERSION_MAJOR 1
-#define JANET_VERSION_MINOR 23
-#define JANET_VERSION_PATCH 0
+#define JANET_VERSION_MINOR 25
+#define JANET_VERSION_PATCH 1
 #define JANET_VERSION_EXTRA ""
-#define JANET_VERSION "1.23.0"
+#define JANET_VERSION "1.25.1"
 
 /* #define JANET_BUILD "local" */
 
@@ -228,9 +228,9 @@ extern "C" {
 #endif
 
 /* Enable or disable the FFI library. Currently, FFI only enabled on
- * x86-64, non-windows operating systems. */
+ * x86-64 operating systems. */
 #ifndef JANET_NO_FFI
-#if !defined(JANET_WINDOWS) && !defined(__EMSCRIPTEN__) && (defined(__x86_64__) || defined(_M_X64))
+#if !defined(__EMSCRIPTEN__) && (defined(__x86_64__) || defined(_M_X64))
 #define JANET_FFI
 #endif
 #endif
@@ -300,7 +300,7 @@ extern "C" {
 /* Maximum depth to follow table prototypes before giving up and returning nil. */
 #define JANET_MAX_PROTO_DEPTH 200
 
-/* Maximum depth to follow table prototypes before giving up and returning nil. */
+/* Prevent macros to expand too deeply and error out. */
 #define JANET_MAX_MACRO_EXPAND 200
 
 /* Define default max stack size for stacks before raising a stack overflow error.
@@ -1735,6 +1735,7 @@ JANET_API JanetModule janet_native(const char *name, JanetString *error);
 
 /* Marshaling */
 #define JANET_MARSHAL_UNSAFE 0x20000
+#define JANET_MARSHAL_NO_CYCLES 0x40000
 
 JANET_API void janet_marshal(
     JanetBuffer *buf,
