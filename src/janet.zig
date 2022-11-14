@@ -1729,7 +1729,7 @@ pub const AbstractType = VoidAbstract.Type;
 
 pub const Reg = extern struct {
     name: ?[*:0]const u8,
-    cfun: ?CFunction.TypeImpl,
+    cfun: ?*const CFunction.TypeImpl,
     documentation: ?[*:0]const u8 = null,
 
     pub const empty = Reg{ .name = null, .cfun = null };
@@ -1737,7 +1737,7 @@ pub const Reg = extern struct {
 
 pub const RegExt = extern struct {
     name: ?[*:0]const u8,
-    cfun: ?CFunction.TypeImpl,
+    cfun: ?*const CFunction.TypeImpl,
     documentation: ?[*:0]const u8 = null,
     source_file: ?[*:0]const u8 = null,
     source_line: i32 = 0,
@@ -1747,7 +1747,7 @@ pub const RegExt = extern struct {
 
 pub const Method = extern struct {
     name: [*:0]const u8,
-    cfun: CFunction.TypeImpl,
+    cfun: *const CFunction.TypeImpl,
 };
 
 pub const View = extern struct {
