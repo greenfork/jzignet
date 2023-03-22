@@ -7,12 +7,13 @@ const testing = std.testing;
 // TODO: pass this option from the build system.
 pub const JANET_NO_NANBOX = false;
 
-pub const c = @cImport({
-    if (JANET_NO_NANBOX) {
-        @cDefine("JANET_NO_NANBOX", {});
-    }
-    @cInclude("janet.h");
-});
+// pub const c = @cImport({
+//     if (JANET_NO_NANBOX) {
+//         @cDefine("JANET_NO_NANBOX", {});
+//     }
+//     @cInclude("janet.h");
+// });
+const c = @import("cjanet");
 
 // Bindings
 
@@ -1252,7 +1253,7 @@ pub const Environment = extern struct {
             bytes.ptr,
             @intCast(i32, bytes.len),
             source_path.ptr,
-            @ptrCast([*c]c.Janet, &janet),
+            @ptrCast(*c.Janet, &janet),
         );
         if (errflags == 0) {
             return janet;
@@ -2020,10 +2021,10 @@ fn cfunGetcounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 }
 
 const zig_struct_cfuns = [_]Reg{
-    Reg{ .name = "struct-init", .cfun = cfunZigStruct },
-    Reg{ .name = "inc", .cfun = cfunInc },
-    Reg{ .name = "dec", .cfun = cfunDec },
-    Reg{ .name = "get-counter", .cfun = cfunGetcounter },
+    Reg{ .name = "struct-init", .cfun = &&cfunZigStruct },
+    Reg{ .name = "inc", .cfun = &&cfunInc },
+    Reg{ .name = "dec", .cfun = &&cfunDec },
+    Reg{ .name = "get-counter", .cfun = &&cfunGetcounter },
     Reg.empty,
 };
 
@@ -2233,9 +2234,9 @@ fn cfunGetComplexCounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 }
 
 const complex_zig_struct_cfuns = [_]Reg{
-    Reg{ .name = "complex-struct-init", .cfun = cfunComplexZigStruct },
-    Reg{ .name = "get-counter", .cfun = cfunGetComplexCounter },
-    Reg{ .name = "alloc-init", .cfun = cfunInitZigAllocator },
+    Reg{ .name = "complex-struct-init", .cfun = &&cfunComplexZigStruct },
+    Reg{ .name = "get-counter", .cfun = &&cfunGetComplexCounter },
+    Reg{ .name = "alloc-init", .cfun = &&cfunInitZigAllocator },
     Reg.empty,
 };
 
