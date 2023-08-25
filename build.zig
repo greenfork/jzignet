@@ -35,9 +35,9 @@ pub fn build(b: *std.build.Builder) void {
         janet_flags.appendSlice(&[_][]const u8{"-DJANET_NO_NANBOX"}) catch unreachable;
     }
     janet_lib.linkLibC();
-    janet_lib.addIncludePath("c");
-    janet_lib.addCSourceFile("c/janet.c", janet_flags.items);
-    janet_lib.install();
+    janet_lib.addIncludePath(.{ .path = "c" });
+    janet_lib.addCSourceFile(.{ .file = .{ .path = "c/janet.c" }, .flags = janet_flags.items });
+    b.installArtifact(janet_lib);
 
     var tests = b.addTest(.{
         .root_source_file = .{ .path = "src/janet.zig" },
@@ -46,8 +46,7 @@ pub fn build(b: *std.build.Builder) void {
     });
     tests.addModule("cjanet", c_module);
     tests.linkLibrary(janet_lib);
-    
 
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&tests.run().step);
+    test_step.dependOn(&b.addRunArtifact(tests).step);
 }
