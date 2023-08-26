@@ -7,12 +7,13 @@ const testing = std.testing;
 // TODO: pass this option from the build system.
 pub const JANET_NO_NANBOX = false;
 
-pub const c = @cImport({
-    if (JANET_NO_NANBOX) {
-        @cDefine("JANET_NO_NANBOX", {});
-    }
-    @cInclude("janet.h");
-});
+// pub const c = @cImport({
+//     if (JANET_NO_NANBOX) {
+//         @cDefine("JANET_NO_NANBOX", {});
+//     }
+//     @cInclude("janet.h");
+// });
+const c = @import("cjanet");
 
 // Bindings
 
@@ -75,9 +76,9 @@ pub fn deinit() void {
     c.janet_deinit();
 }
 pub fn mcall(name: [:0]const u8, argv: []Janet) Signal.Error!void {
-    const signal = @ptrCast(
+    const signal = @as(
         *const Signal,
-        &c.janet_mcall(name.ptr, @intCast(i32, argv.len), @ptrCast([*c]c.Janet, argv.ptr)),
+        @ptrCast(&c.janet_mcall(name.ptr, @as(i32, @intCast(argv.len)), @as([*c]c.Janet, @ptrCast(argv.ptr)))),
     ).*;
     switch (signal) {
         .ok => {},
@@ -95,7 +96,7 @@ pub const TryState = extern struct {
     payload: Janet,
 
     pub fn toC(self: *TryState) *c.JanetTryState {
-        return @ptrCast(*c.JanetTryState, self);
+        return @as(*c.JanetTryState, @ptrCast(self));
     }
     pub fn tryInit(state: *TryState) void {
         c.janet_try_init(state.toC());
@@ -109,9 +110,9 @@ pub const TryState = extern struct {
                 builtin.target.os.tag == .netbsd or
                 builtin.target.os.tag == .dragonfly)
             {
-                break :blk @ptrCast(*Signal, &c._setjmp(&state.buf)).*;
+                break :blk @as(*Signal, @ptrCast(&c._setjmp(&state.buf))).*;
             } else {
-                break :blk @ptrCast(*Signal, &c.setjmp(&state.buf)).*;
+                break :blk @as(*Signal, @ptrCast(&c.setjmp(&state.buf))).*;
             }
         };
         switch (signal) {
@@ -144,26 +145,26 @@ pub fn fixArity(ary: i32, fix: i32) void {
 pub fn getMethod(method: Keyword, methods: [*]const Method, out: *Janet) bool {
     return c.janet_getmethod(
         method.toC(),
-        @ptrCast([*c]const c.JanetMethod, methods),
-        @ptrCast(*c.Janet, out),
+        @as([*c]const c.JanetMethod, @ptrCast(methods)),
+        @as(*c.Janet, @ptrCast(out)),
     ) > 0;
 }
 // Returns Janet.nil if there's no next method.
 pub fn nextMethod(methods: [*]const Method, key: Janet) Janet {
-    return Janet.fromC(c.janet_nextmethod(@ptrCast([*c]const c.JanetMethod, methods), key.toC()));
+    return Janet.fromC(c.janet_nextmethod(@as([*c]const c.JanetMethod, @ptrCast(methods)), key.toC()));
 }
 
 pub fn nil() Janet {
     return Janet.fromC(c.janet_wrap_nil());
 }
 pub fn keyword(str: []const u8) Janet {
-    return Janet.fromC(c.janet_keywordv(str.ptr, @intCast(i32, str.len)));
+    return Janet.fromC(c.janet_keywordv(str.ptr, @as(i32, @intCast(str.len))));
 }
 pub fn symbol(str: []const u8) Janet {
-    return Janet.fromC(c.janet_symbolv(str.ptr, @intCast(i32, str.len)));
+    return Janet.fromC(c.janet_symbolv(str.ptr, @as(i32, @intCast(str.len))));
 }
 pub fn string(str: []const u8) Janet {
-    return Janet.fromC(c.janet_stringv(str.ptr, @intCast(i32, str.len)));
+    return Janet.fromC(c.janet_stringv(str.ptr, @as(i32, @intCast(str.len))));
 }
 pub fn numberSafe(x: f64) Janet {
     return Janet.fromC(c.janet_wrap_number_safe(x));
@@ -171,10 +172,10 @@ pub fn numberSafe(x: f64) Janet {
 pub fn wrap(comptime T: type, value: T) Janet {
     return switch (T) {
         f64 => Janet.fromC(c.janet_wrap_number(value)),
-        u32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-        i32 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-        i64 => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
-        usize => Janet.fromC(c.janet_wrap_number(@intToFloat(f64, value))),
+        u32 => Janet.fromC(c.janet_wrap_number(@as(f64, @floatFromInt(value)))),
+        i32 => Janet.fromC(c.janet_wrap_number(@as(f64, @floatFromInt(value)))),
+        i64 => Janet.fromC(c.janet_wrap_number(@as(f64, @floatFromInt(value)))),
+        usize => Janet.fromC(c.janet_wrap_number(@as(f64, @floatFromInt(value)))),
         bool => if (value) Janet.fromC(c.janet_wrap_true()) else Janet.fromC(c.janet_wrap_false()),
         String => value.wrap(),
         Symbol => value.wrap(),
@@ -196,7 +197,7 @@ pub fn wrap(comptime T: type, value: T) Janet {
 pub fn get(comptime T: type, argv: [*]const Janet, n: i32) T {
     return switch (T) {
         f64 => c.janet_getnumber(Janet.toConstPtr(argv), n),
-        u32 => @intCast(u32, c.janet_getnat(Janet.toConstPtr(argv), n)),
+        u32 => @as(u32, @intCast(c.janet_getnat(Janet.toConstPtr(argv), n))),
         i32 => c.janet_getinteger(Janet.toConstPtr(argv), n),
         i64 => c.janet_getinteger64(Janet.toConstPtr(argv), n),
         u64 => c.janet_getuinteger64(Janet.toConstPtr(argv), n),
@@ -216,10 +217,10 @@ pub fn get(comptime T: type, argv: [*]const Janet, n: i32) T {
         *Function => Function.fromC(
             c.janet_getfunction(Janet.toConstPtr(argv), n) orelse unreachable,
         ),
-        View => @ptrCast(*View, &c.janet_getindexed(Janet.toConstPtr(argv), n)).*,
-        ByteView => @ptrCast(*ByteView, &c.janet_getbytes(Janet.toConstPtr(argv), n)).*,
-        DictView => @ptrCast(*DictView, &c.janet_getdictionary(Janet.toConstPtr(argv), n)).*,
-        Range => @ptrCast(*Range, &c.janet_getslice(n, Janet.toConstPtr(argv))).*,
+        View => @as(*View, @ptrCast(&c.janet_getindexed(Janet.toConstPtr(argv), n))).*,
+        ByteView => @as(*ByteView, @ptrCast(&c.janet_getbytes(Janet.toConstPtr(argv), n))).*,
+        DictView => @as(*DictView, @ptrCast(&c.janet_getdictionary(Janet.toConstPtr(argv), n))).*,
+        Range => @as(*Range, @ptrCast(&c.janet_getslice(n, Janet.toConstPtr(argv)))).*,
         AbstractType => @compileError("Please use 'getAbstract' instead"),
         else => @compileError("Get is not supported for '" ++ @typeName(T) ++ "'"),
     };
@@ -248,7 +249,7 @@ pub fn getFlags(argv: [*]const Janet, n: i32, flags: [:0]const u8) u64 {
 pub fn opt(comptime T: type, argv: [*]const Janet, argc: i32, n: i32, dflt: T) T {
     return switch (T) {
         f64 => c.janet_optnumber(Janet.toConstPtr(argv), argc, n, dflt),
-        u32 => @intCast(u32, c.janet_optnat(Janet.toConstPtr(argv), argc, n, @intCast(i32, dflt))),
+        u32 => @as(u32, @intCast(c.janet_optnat(Janet.toConstPtr(argv), argc, n, @as(i32, @intCast(dflt))))),
         i32 => c.janet_optinteger(Janet.toConstPtr(argv), argc, n, dflt),
         i64 => c.janet_optinteger64(Janet.toConstPtr(argv), argc, n, dflt),
         usize => c.janet_optsize(Janet.toConstPtr(argv), argc, n, dflt),
@@ -359,18 +360,18 @@ pub fn scalloc(nmemb: usize, size: usize) ?*anyopaque {
     return c.janet_scalloc(nmemb, size);
 }
 pub fn sfinalizer(ptr: *anyopaque, finalizer: ScratchFinalizer) void {
-    return c.janet_sfinalizer(ptr, @ptrCast(ScratchFinalizerC, finalizer));
+    return c.janet_sfinalizer(ptr, @as(ScratchFinalizerC, @ptrCast(finalizer)));
 }
 pub fn sfree(ptr: *anyopaque) void {
     c.janet_sfree(ptr);
 }
 
 pub fn sortedKeys(dict: [*]const KV, cap: i32, index_buffer: *i32) i32 {
-    return c.janet_sorted_keys(@ptrCast([*c]const c.JanetKV, dict), cap, index_buffer);
+    return c.janet_sorted_keys(@as([*c]const c.JanetKV, @ptrCast(dict)), cap, index_buffer);
 }
 pub fn dictionaryGet(data: [*]const KV, cap: i32, key: Janet) ?Janet {
     const value = Janet.fromC(
-        c.janet_dictionary_get(@ptrCast([*c]const c.JanetKV, data), cap, key.toC()),
+        c.janet_dictionary_get(@as([*c]const c.JanetKV, @ptrCast(data)), cap, key.toC()),
     );
     if (value.checkType(.nil)) {
         return null;
@@ -379,11 +380,11 @@ pub fn dictionaryGet(data: [*]const KV, cap: i32, key: Janet) ?Janet {
     }
 }
 pub fn dictionaryNext(kvs: [*]const KV, cap: i32, kv: *const KV) ?*const KV {
-    return @ptrCast(?*const KV, c.janet_dictionary_next(
-        @ptrCast([*c]const c.JanetKV, kvs),
+    return @as(?*const KV, @ptrCast(c.janet_dictionary_next(
+        @as([*c]const c.JanetKV, @ptrCast(kvs)),
         cap,
-        @ptrCast([*c]const c.JanetKV, kv),
-    ));
+        @as([*c]const c.JanetKV, @ptrCast(kv)),
+    )));
 }
 
 pub const BuildConfig = extern struct {
@@ -420,22 +421,22 @@ const JanetType = enum(c_int) {
     pointer,
 };
 
-pub const TFLAG_NIL = (1 << @enumToInt(Janet.Type.nil));
-pub const TFLAG_BOOLEAN = (1 << @enumToInt(Janet.Type.boolean));
-pub const TFLAG_FIBER = (1 << @enumToInt(Janet.Type.fiber));
-pub const TFLAG_NUMBER = (1 << @enumToInt(Janet.Type.number));
-pub const TFLAG_STRING = (1 << @enumToInt(Janet.Type.string));
-pub const TFLAG_SYMBOL = (1 << @enumToInt(Janet.Type.symbol));
-pub const TFLAG_KEYWORD = (1 << @enumToInt(Janet.Type.keyword));
-pub const TFLAG_ARRAY = (1 << @enumToInt(Janet.Type.array));
-pub const TFLAG_TUPLE = (1 << @enumToInt(Janet.Type.tuple));
-pub const TFLAG_TABLE = (1 << @enumToInt(Janet.Type.table));
-pub const TFLAG_STRUCT = (1 << @enumToInt(Janet.Type.@"struct"));
-pub const TFLAG_BUFFER = (1 << @enumToInt(Janet.Type.buffer));
-pub const TFLAG_FUNCTION = (1 << @enumToInt(Janet.Type.function));
-pub const TFLAG_CFUNCTION = (1 << @enumToInt(Janet.Type.cfunction));
-pub const TFLAG_ABSTRACT = (1 << @enumToInt(Janet.Type.abstract));
-pub const TFLAG_POINTER = (1 << @enumToInt(Janet.Type.pointer));
+pub const TFLAG_NIL = (1 << @intFromEnum(Janet.Type.nil));
+pub const TFLAG_BOOLEAN = (1 << @intFromEnum(Janet.Type.boolean));
+pub const TFLAG_FIBER = (1 << @intFromEnum(Janet.Type.fiber));
+pub const TFLAG_NUMBER = (1 << @intFromEnum(Janet.Type.number));
+pub const TFLAG_STRING = (1 << @intFromEnum(Janet.Type.string));
+pub const TFLAG_SYMBOL = (1 << @intFromEnum(Janet.Type.symbol));
+pub const TFLAG_KEYWORD = (1 << @intFromEnum(Janet.Type.keyword));
+pub const TFLAG_ARRAY = (1 << @intFromEnum(Janet.Type.array));
+pub const TFLAG_TUPLE = (1 << @intFromEnum(Janet.Type.tuple));
+pub const TFLAG_TABLE = (1 << @intFromEnum(Janet.Type.table));
+pub const TFLAG_STRUCT = (1 << @intFromEnum(Janet.Type.@"struct"));
+pub const TFLAG_BUFFER = (1 << @intFromEnum(Janet.Type.buffer));
+pub const TFLAG_FUNCTION = (1 << @intFromEnum(Janet.Type.function));
+pub const TFLAG_CFUNCTION = (1 << @intFromEnum(Janet.Type.cfunction));
+pub const TFLAG_ABSTRACT = (1 << @intFromEnum(Janet.Type.abstract));
+pub const TFLAG_POINTER = (1 << @intFromEnum(Janet.Type.pointer));
 
 // Some abstractions
 pub const TFLAG_BYTES = TFLAG_STRING | TFLAG_SYMBOL | TFLAG_BUFFER | TFLAG_KEYWORD;
@@ -451,21 +452,21 @@ pub const Janet = blk: {
     {
         break :blk extern struct {
             as: extern union {
-                @"u64": u64,
+                u64: u64,
                 number: f64,
                 integer: i32,
                 pointer: *anyopaque,
                 cpointer: *const anyopaque,
             },
-            @"type": Type,
+            type: Type,
 
             pub const Type = JanetType;
             pub usingnamespace JanetMixin;
         };
     } else if (builtin.target.cpu.arch == .x86_64) {
         break :blk extern union {
-            @"u64": u64,
-            @"i64": i64,
+            u64: u64,
+            i64: i64,
             number: f64,
             pointer: *anyopaque,
 
@@ -475,14 +476,14 @@ pub const Janet = blk: {
     } else if (builtin.target.cpu.arch.endianess() == .Big) {
         break :blk extern union {
             tagged: extern struct {
-                @"type": u32,
+                type: u32,
                 payload: extern union {
                     integer: u32,
                     pointer: *anyopaque,
                 },
             },
             number: f64,
-            @"u64": u64,
+            u64: u64,
 
             pub const Type = JanetType;
             pub usingnamespace JanetMixin;
@@ -494,10 +495,10 @@ pub const Janet = blk: {
                     integer: u32,
                     pointer: *anyopaque,
                 },
-                @"type": u32,
+                type: u32,
             },
             number: f64,
-            @"u64": u64,
+            u64: u64,
 
             pub const Type = JanetType;
             pub usingnamespace JanetMixin;
@@ -507,17 +508,17 @@ pub const Janet = blk: {
 
 const JanetMixin = struct {
     pub fn fromC(janet: c.Janet) Janet {
-        return @ptrCast(*const Janet, &janet).*;
+        return @as(*const Janet, @ptrCast(&janet)).*;
     }
     pub fn toC(janet: *const Janet) c.Janet {
-        return @ptrCast(*const c.Janet, janet).*;
+        return @as(*const c.Janet, @ptrCast(janet)).*;
     }
     pub fn toConstPtr(janet: [*]const Janet) [*c]const c.Janet {
-        return @ptrCast([*c]const c.Janet, janet);
+        return @as([*c]const c.Janet, @ptrCast(janet));
     }
 
     pub fn checkType(janet: Janet, typ: Janet.Type) bool {
-        return c.janet_checktype(janet.toC(), @ptrCast(*const c.JanetType, &typ).*) > 0;
+        return c.janet_checktype(janet.toC(), @as(*const c.JanetType, @ptrCast(&typ)).*) > 0;
     }
     pub fn checkTypes(janet: Janet, typeflags: i32) bool {
         return c.janet_checktypes(janet.toC(), typeflags) > 0;
@@ -526,7 +527,7 @@ const JanetMixin = struct {
         return c.janet_truthy(janet.toC()) > 0;
     }
     pub fn janetType(janet: Janet) Janet.Type {
-        return @ptrCast(*const Janet.Type, &c.janet_type(janet.toC())).*;
+        return @as(*const Janet.Type, @ptrCast(&c.janet_type(janet.toC()))).*;
     }
     pub fn getAbstractType(janet: Janet) *const AbstractType {
         return AbstractType.fromC(c.janet_get_abstract_type(janet.toC()));
@@ -580,14 +581,14 @@ const JanetMixin = struct {
     pub fn indexedView(seq: Janet) !View {
         var data: [*]const Janet = undefined;
         var len: i32 = undefined;
-        const rs = c.janet_indexed_view(seq.toC(), @ptrCast([*c][*c]const c.Janet, &data), &len);
+        const rs = c.janet_indexed_view(seq.toC(), @as([*c][*c]const c.Janet, @ptrCast(&data)), &len);
         if (rs <= 0) return error.CannotConstructView;
         return View{ .items = data, .len = len };
     }
     pub fn bytesView(str: Janet) !ByteView {
         var data: [*]const u8 = undefined;
         var len: i32 = undefined;
-        const rs = c.janet_bytes_view(str.toC(), @ptrCast([*c][*c]const u8, &data), &len);
+        const rs = c.janet_bytes_view(str.toC(), @as([*c][*c]const u8, @ptrCast(&data)), &len);
         if (rs <= 0) return error.CannotConstructView;
         return ByteView{ .bytes = data, .len = len };
     }
@@ -597,7 +598,7 @@ const JanetMixin = struct {
         var cap: i32 = undefined;
         const rs = c.janet_dictionary_view(
             tab.toC(),
-            @ptrCast([*c][*c]const c.JanetKV, &data),
+            @as([*c][*c]const c.JanetKV, @ptrCast(&data)),
             &len,
             &cap,
         );
@@ -625,7 +626,7 @@ const JanetMixin = struct {
                 if (!janet.checkType(.number)) return error.NotNumber;
                 const value = c.janet_unwrap_integer(janet.toC());
                 if (value < 0) return error.NegativeValue;
-                return @intCast(u32, value);
+                return @as(u32, @intCast(value));
             },
             i32 => {
                 if (!janet.checkType(.number)) return error.NotNumber;
@@ -633,13 +634,13 @@ const JanetMixin = struct {
             },
             i64 => {
                 if (!janet.checkType(.number)) return error.NotNumber;
-                return @intCast(i64, c.janet_unwrap_integer(janet.toC()));
+                return @as(i64, @intCast(c.janet_unwrap_integer(janet.toC())));
             },
             usize => {
                 if (!janet.checkType(.number)) return error.NotNumber;
                 const value = c.janet_unwrap_integer(janet.toC());
                 if (value < 0) return error.NegativeValue;
-                return @intCast(usize, value);
+                return @as(usize, @intCast(value));
             },
             bool => {
                 if (!janet.checkType(.boolean)) return error.NotBoolean;
@@ -663,11 +664,11 @@ const JanetMixin = struct {
             },
             *Array => {
                 if (!janet.checkType(.array)) return error.NotArray;
-                return @ptrCast(*Array, c.janet_unwrap_array(janet.toC()));
+                return @as(*Array, @ptrCast(c.janet_unwrap_array(janet.toC())));
             },
             *Buffer => {
                 if (!janet.checkType(.buffer)) return error.NotBuffer;
-                return @ptrCast(*Buffer, c.janet_unwrap_buffer(janet.toC()));
+                return @as(*Buffer, @ptrCast(c.janet_unwrap_buffer(janet.toC())));
             },
             Struct => {
                 if (!janet.checkType(.@"struct")) return error.NotStruct;
@@ -675,7 +676,7 @@ const JanetMixin = struct {
             },
             *Table => {
                 if (!janet.checkType(.table)) return error.NotTable;
-                return @ptrCast(*Table, c.janet_unwrap_table(janet.toC()));
+                return @as(*Table, @ptrCast(c.janet_unwrap_table(janet.toC())));
             },
             *anyopaque => {
                 if (!janet.checkType(.pointer)) return error.NotPointer;
@@ -709,7 +710,7 @@ pub const KV = extern struct {
     value: Janet,
 
     pub fn toC(self: *KV) [*c]c.JanetKV {
-        return @ptrCast([*c]c.JanetKV, self);
+        return @as([*c]c.JanetKV, @ptrCast(self));
     }
 };
 
@@ -733,20 +734,19 @@ pub const String = struct {
     }
 
     pub fn init(buf: []u8) String {
-        return fromC(c.janet_string(buf.ptr, @intCast(i32, buf.len)));
+        return fromC(c.janet_string(buf.ptr, @as(i32, @intCast(buf.len))));
     }
 
     pub fn head(self: String) *Head {
         const h = c.janet_string_head(self.slice.ptr);
-        const aligned_head = @alignCast(@alignOf(*Head), h);
-        return @ptrCast(*Head, aligned_head);
+        return @as(*Head, @ptrCast(@alignCast(h)));
     }
     pub fn length(self: String) i32 {
         return self.head().length;
     }
 
     pub fn begin(len: i32) [*]u8 {
-        return @ptrCast([*]u8, c.janet_string_begin(len) orelse unreachable);
+        return @as([*]u8, @ptrCast(c.janet_string_begin(len) orelse unreachable));
     }
     pub fn end(str: [*]u8) String {
         return fromC(c.janet_string_end(str));
@@ -758,7 +758,7 @@ pub const String = struct {
         return c.janet_string_equal(lhs.toC(), rhs.toC()) > 0;
     }
     pub fn equalConst(lhs: String, rhs: []u8, rhash: i32) bool {
-        return c.janet_string_equalconst(lhs.toC(), rhs.ptr, @intCast(i32, rhs.len), rhash) > 0;
+        return c.janet_string_equalconst(lhs.toC(), rhs.ptr, @as(i32, @intCast(rhs.len)), rhash) > 0;
     }
 
     pub fn wrap(self: String) Janet {
@@ -780,7 +780,7 @@ pub const Symbol = struct {
     }
 
     pub fn init(str: []const u8) Symbol {
-        return fromC(c.janet_symbol(str.ptr, @intCast(i32, str.len)));
+        return fromC(c.janet_symbol(str.ptr, @as(i32, @intCast(str.len))));
     }
 
     pub fn wrap(self: Symbol) Janet {
@@ -806,7 +806,7 @@ pub const Keyword = struct {
     }
 
     pub fn init(str: []const u8) Keyword {
-        return fromC(c.janet_keyword(str.ptr, @intCast(i32, str.len)));
+        return fromC(c.janet_keyword(str.ptr, @as(i32, @intCast(str.len))));
     }
 
     pub fn wrap(self: Keyword) Janet {
@@ -821,10 +821,10 @@ pub const Array = extern struct {
     data: [*]Janet,
 
     pub fn toC(self: *Array) *c.JanetArray {
-        return @ptrCast(*c.JanetArray, self);
+        return @as(*c.JanetArray, @ptrCast(self));
     }
     pub fn fromC(ptr: *c.JanetArray) *Array {
-        return @ptrCast(*Array, ptr);
+        return @as(*Array, @ptrCast(ptr));
     }
 
     pub fn init(capacity: i32) *Array {
@@ -832,8 +832,8 @@ pub const Array = extern struct {
     }
     pub fn initN(elements: []const Janet) *Array {
         return fromC(c.janet_array_n(
-            @ptrCast([*c]const c.Janet, elements.ptr),
-            @intCast(i32, elements.len),
+            @as([*c]const c.Janet, @ptrCast(elements.ptr)),
+            @as(i32, @intCast(elements.len)),
         ));
     }
     pub fn ensure(self: *Array, capacity: i32, growth: i32) void {
@@ -864,10 +864,10 @@ pub const Buffer = extern struct {
     data: [*]u8,
 
     pub fn toC(self: *Buffer) *c.JanetBuffer {
-        return @ptrCast(*c.JanetBuffer, self);
+        return @as(*c.JanetBuffer, @ptrCast(self));
     }
     pub fn fromC(ptr: *c.JanetBuffer) *Buffer {
-        return @ptrCast(*Buffer, ptr);
+        return @as(*Buffer, @ptrCast(ptr));
     }
 
     /// C function: janet_buffer_init
@@ -879,7 +879,7 @@ pub const Buffer = extern struct {
         return fromC(c.janet_buffer(capacity));
     }
     pub fn initN(bytes: []const u8) *Buffer {
-        var buf = initDynamic(@intCast(i32, bytes.len));
+        var buf = initDynamic(@as(i32, @intCast(bytes.len)));
         buf.pushBytes(bytes);
         return buf;
     }
@@ -896,7 +896,7 @@ pub const Buffer = extern struct {
         c.janet_buffer_extra(self.toC(), n);
     }
     pub fn pushBytes(self: *Buffer, bytes: []const u8) void {
-        c.janet_buffer_push_bytes(self.toC(), bytes.ptr, @intCast(i32, bytes.len));
+        c.janet_buffer_push_bytes(self.toC(), bytes.ptr, @as(i32, @intCast(bytes.len)));
     }
     pub fn pushString(self: *Buffer, str: String) void {
         c.janet_buffer_push_string(self.toC(), str.toC());
@@ -934,35 +934,34 @@ pub const Tuple = struct {
     };
 
     pub fn fromC(ptr: TypeC) Tuple {
-        const p = @ptrCast([*]const Janet, ptr);
+        const p = @as([*]const Janet, @ptrCast(ptr));
         const janet_head = c.janet_tuple_head(ptr);
-        const h = @ptrCast(*Head, @alignCast(@alignOf(*Head), janet_head));
-        const len = @intCast(usize, h.length);
+        const h = @as(*Head, @ptrCast(@alignCast(janet_head)));
+        const len = @as(usize, @intCast(h.length));
         return Tuple{ .slice = p[0..len] };
     }
     pub fn toC(self: Tuple) TypeC {
-        return @ptrCast(TypeC, self.slice.ptr);
+        return @as(TypeC, @ptrCast(self.slice.ptr));
     }
 
     pub fn head(self: Tuple) *Head {
-        const h = c.janet_tuple_head(@ptrCast(*const c.Janet, self.slice.ptr));
-        const aligned_head = @alignCast(@alignOf(*Head), h);
-        return @ptrCast(*Head, aligned_head);
+        const h = c.janet_tuple_head(@as(*const c.Janet, @ptrCast(self.slice.ptr)));
+        return @as(*Head, @ptrCast(@alignCast(h)));
     }
     pub fn length(self: Tuple) i32 {
         return self.head().length;
     }
 
     pub fn begin(len: i32) [*]Janet {
-        return @ptrCast([*]Janet, c.janet_tuple_begin(len));
+        return @as([*]Janet, @ptrCast(c.janet_tuple_begin(len)));
     }
     pub fn end(tuple: [*]Janet) Tuple {
-        return fromC(c.janet_tuple_end(@ptrCast([*c]c.Janet, tuple)));
+        return fromC(c.janet_tuple_end(@as([*c]c.Janet, @ptrCast(tuple))));
     }
     pub fn initN(values: []const Janet) Tuple {
         return fromC(c.janet_tuple_n(
-            @ptrCast([*c]const c.Janet, values.ptr),
-            @intCast(i32, values.len),
+            @as([*c]const c.Janet, @ptrCast(values.ptr)),
+            @as(i32, @intCast(values.len)),
         ));
     }
 
@@ -986,35 +985,34 @@ pub const Struct = struct {
     };
 
     pub fn toC(self: Struct) TypeC {
-        return @ptrCast([*]const c.JanetKV, self.ptr);
+        return @as([*]const c.JanetKV, @ptrCast(self.ptr));
     }
     pub fn fromC(ptr: TypeC) Struct {
-        return Struct{ .ptr = @ptrCast(TypeImpl, ptr) };
+        return Struct{ .ptr = @as(TypeImpl, @ptrCast(ptr)) };
     }
 
     pub fn initN(kvs: []const KV) Struct {
-        var st = begin(@intCast(i32, kvs.len));
+        var st = begin(@as(i32, @intCast(kvs.len)));
         for (kvs) |kv| put(st, kv.key, kv.value);
         return end(st);
     }
 
     pub fn head(self: Struct) *Head {
-        const h = c.janet_struct_head(@ptrCast(*const c.JanetKV, self.toC()));
-        const aligned_head = @alignCast(@alignOf(*Head), h);
-        return @ptrCast(*Head, aligned_head);
+        const h = c.janet_struct_head(@as(*const c.JanetKV, @ptrCast(self.toC())));
+        return @as(*Head, @ptrCast(@alignCast(h)));
     }
     pub fn length(self: Struct) i32 {
         return self.head().length;
     }
 
     pub fn begin(count: i32) [*]KV {
-        return @ptrCast([*]KV, c.janet_struct_begin(count));
+        return @as([*]KV, @ptrCast(c.janet_struct_begin(count)));
     }
     pub fn put(st: [*]KV, key: Janet, value: Janet) void {
-        c.janet_struct_put(@ptrCast([*c]c.JanetKV, st), key.toC(), value.toC());
+        c.janet_struct_put(@as([*c]c.JanetKV, @ptrCast(st)), key.toC(), value.toC());
     }
     pub fn end(st: [*]KV) Struct {
-        return fromC(c.janet_struct_end(@ptrCast([*c]c.JanetKV, st)));
+        return fromC(c.janet_struct_end(@as([*c]c.JanetKV, @ptrCast(st))));
     }
     pub fn get(self: Struct, key: Janet) ?Janet {
         const value = Janet.fromC(c.janet_struct_get(self.toC(), key.toC()));
@@ -1028,7 +1026,7 @@ pub const Struct = struct {
         const value = Janet.fromC(c.janet_struct_get_ex(
             self.toC(),
             key.toC(),
-            @ptrCast([*c]c.JanetStruct, &which.ptr),
+            @as([*c]c.JanetStruct, @ptrCast(&which.ptr)),
         ));
         if (value.checkType(.nil)) {
             return null;
@@ -1048,7 +1046,7 @@ pub const Struct = struct {
         return Table.fromC(c.janet_struct_to_table(self.toC()));
     }
     pub fn find(self: Struct, key: Janet) ?*const KV {
-        return @ptrCast(?*const KV, c.janet_struct_find(self.toC(), key.toC()));
+        return @as(?*const KV, @ptrCast(c.janet_struct_find(self.toC(), key.toC())));
     }
 
     pub fn wrap(self: *Struct) Janet {
@@ -1065,10 +1063,10 @@ pub const Table = extern struct {
     proto: ?*Table,
 
     pub fn toC(table: *Table) *c.JanetTable {
-        return @ptrCast(*c.JanetTable, table);
+        return @as(*c.JanetTable, @ptrCast(table));
     }
     pub fn fromC(janet_table: *c.JanetTable) *Table {
-        return @ptrCast(*Table, janet_table);
+        return @as(*Table, @ptrCast(janet_table));
     }
 
     /// C function: janet_table_init
@@ -1083,7 +1081,7 @@ pub const Table = extern struct {
         return fromC(c.janet_table_init_raw(table.toC(), capacity));
     }
     pub fn initN(kvs: []const KV) *Table {
-        var table = initDynamic(@intCast(i32, kvs.len));
+        var table = initDynamic(@as(i32, @intCast(kvs.len)));
         for (kvs) |kv| table.put(kv.key, kv.value);
         return table;
     }
@@ -1102,7 +1100,7 @@ pub const Table = extern struct {
         const value = Janet.fromC(c.janet_table_get_ex(
             self.toC(),
             key.toC(),
-            @ptrCast([*c][*c]c.JanetTable, which),
+            @as([*c][*c]c.JanetTable, @ptrCast(which)),
         ));
         if (value.checkType(.nil)) {
             return null;
@@ -1139,7 +1137,7 @@ pub const Table = extern struct {
         c.janet_table_merge_struct(self.toC(), other.toC());
     }
     pub fn find(self: *Table, key: Janet) ?*const KV {
-        return @ptrCast(?*const KV, c.janet_table_find(self.toC(), key.toC()));
+        return @as(?*const KV, @ptrCast(c.janet_table_find(self.toC(), key.toC())));
     }
     pub fn clone(self: *Table) *Table {
         return fromC(c.janet_table_clone(self.toC()));
@@ -1152,10 +1150,10 @@ pub const Table = extern struct {
         return Janet.fromC(c.janet_wrap_table(self.toC()));
     }
     pub fn fromEnvironment(env: *Environment) *Table {
-        return @ptrCast(*Table, env);
+        return @as(*Table, @ptrCast(env));
     }
     pub fn toEnvironment(table: *Table) *Environment {
-        return @ptrCast(*Environment, table);
+        return @as(*Environment, @ptrCast(table));
     }
 };
 
@@ -1171,27 +1169,27 @@ pub const Environment = extern struct {
     proto: ?*Environment,
 
     pub fn toC(table: *Environment) *c.JanetTable {
-        return @ptrCast(*c.JanetTable, table);
+        return @as(*c.JanetTable, @ptrCast(table));
     }
     pub fn fromC(janet_table: *c.JanetTable) *Environment {
-        return @ptrCast(*Environment, janet_table);
+        return @as(*Environment, @ptrCast(janet_table));
     }
     pub fn toTable(env: *Environment) *Table {
-        return @ptrCast(*Table, env);
+        return @as(*Table, @ptrCast(env));
     }
     pub fn fromTable(table: *Table) *Environment {
-        return @ptrCast(*Environment, table);
+        return @as(*Environment, @ptrCast(table));
     }
 
     pub fn init(replacements: ?*Environment) *Environment {
         return coreEnv(replacements);
     }
     pub fn coreEnv(replacements: ?*Environment) *Environment {
-        return Environment.fromC(c.janet_core_env(@ptrCast([*c]c.JanetTable, replacements)));
+        return Environment.fromC(c.janet_core_env(@as([*c]c.JanetTable, @ptrCast(replacements))));
     }
     pub fn coreLookupTable(replacements: ?*Environment) *Environment {
         return Environment.fromC(
-            c.janet_core_lookup_table(@ptrCast([*c]c.JanetTable, replacements)),
+            c.janet_core_lookup_table(@as([*c]c.JanetTable, @ptrCast(replacements))),
         );
     }
     pub fn def(
@@ -1219,27 +1217,27 @@ pub const Environment = extern struct {
         }
     }
     pub fn cfuns(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
-        return c.janet_cfuns(env.toC(), reg_prefix.ptr, @ptrCast([*c]const c.JanetReg, funs));
+        return c.janet_cfuns(env.toC(), reg_prefix.ptr, @as([*c]const c.JanetReg, @ptrCast(funs)));
     }
     pub fn cfunsExt(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
         return c.janet_cfuns_ext(
             env.toC(),
             reg_prefix.ptr,
-            @ptrCast([*c]const c.JanetRegExt, funs),
+            @as([*c]const c.JanetRegExt, @ptrCast(funs)),
         );
     }
     pub fn cfunsPrefix(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const Reg) void {
         return c.janet_cfuns_prefix(
             env.toC(),
             reg_prefix.ptr,
-            @ptrCast([*c]const c.JanetReg, funs),
+            @as([*c]const c.JanetReg, @ptrCast(funs)),
         );
     }
     pub fn cfunsExtPrefix(env: *Environment, reg_prefix: [:0]const u8, funs: [*]const RegExt) void {
         return c.janet_cfuns_ext_prefix(
             env.toC(),
             reg_prefix.ptr,
-            @ptrCast([*c]const c.JanetRegExt, funs),
+            @as([*c]const c.JanetRegExt, @ptrCast(funs)),
         );
     }
     pub fn doString(env: *Environment, str: []const u8, source_path: [:0]const u8) !Janet {
@@ -1250,9 +1248,9 @@ pub const Environment = extern struct {
         const errflags = c.janet_dobytes(
             env.toC(),
             bytes.ptr,
-            @intCast(i32, bytes.len),
+            @as(i32, @intCast(bytes.len)),
             source_path.ptr,
-            @ptrCast([*c]c.Janet, &janet),
+            @as(*c.Janet, @ptrCast(&janet)),
         );
         if (errflags == 0) {
             return janet;
@@ -1326,10 +1324,10 @@ pub const Function = extern struct {
     };
 
     pub fn toC(self: *Function) *c.JanetFunction {
-        return @ptrCast(*c.JanetFunction, self);
+        return @as(*c.JanetFunction, @ptrCast(self));
     }
     pub fn fromC(ptr: *c.JanetFunction) *Function {
-        return @ptrCast(*Function, @alignCast(@alignOf(*Function), ptr));
+        return @as(*Function, @ptrCast(@alignCast(ptr)));
     }
 
     pub fn wrap(self: *Function) Janet {
@@ -1342,22 +1340,22 @@ pub const Function = extern struct {
         out: *Janet,
         fiber: ?**Fiber,
     ) Signal.Error!void {
-        const signal = @ptrCast(*const Signal, &c.janet_pcall(
+        const signal = @as(*const Signal, @ptrCast(&c.janet_pcall(
             fun.toC(),
-            @intCast(i32, argv.len),
+            @as(i32, @intCast(argv.len)),
             Janet.toConstPtr(argv.ptr),
-            @ptrCast(*c.Janet, out),
-            @ptrCast([*c][*c]c.JanetFiber, fiber),
-        )).*;
+            @as(*c.Janet, @ptrCast(out)),
+            @as([*c][*c]c.JanetFiber, @ptrCast(fiber)),
+        ))).*;
         switch (signal) {
             .ok => {},
             else => return signal.toError(),
         }
     }
     pub fn call(fun: *Function, argv: []const Janet) Signal.Error!void {
-        const signal = @ptrCast(
+        const signal = @as(
             *const Signal,
-            &c.janet_call(fun.toC(), @intCast(i32, argv.len), Janet.toConstPtr(argv.ptr)),
+            @ptrCast(&c.janet_call(fun.toC(), @as(i32, @intCast(argv.len)), Janet.toConstPtr(argv.ptr))),
         ).*;
         switch (signal) {
             .ok => {},
@@ -1373,10 +1371,10 @@ pub const CFunction = struct {
     pub const TypeC = *const fn (argc: i32, argv: [*c]c.Janet) callconv(.C) c.Janet;
 
     pub fn toC(self: CFunction) c.JanetCFunction {
-        return @ptrCast(c.JanetCFunction, self.ptr);
+        return @as(c.JanetCFunction, @ptrCast(self.ptr));
     }
     pub fn fromC(ptr: c.JanetCFunction) CFunction {
-        return CFunction{ .ptr = @ptrCast(TypeImpl, @alignCast(@alignOf(TypeImpl), ptr)) };
+        return CFunction{ .ptr = @as(TypeImpl, @ptrCast(@alignCast(ptr))) };
     }
 
     pub fn wrap(self: CFunction) Janet {
@@ -1421,30 +1419,30 @@ pub const Fiber = extern struct {
     };
 
     pub fn toC(self: *Fiber) *c.JanetFiber {
-        return @ptrCast(*c.JanetFiber, self);
+        return @as(*c.JanetFiber, @ptrCast(self));
     }
     pub fn fromC(ptr: *c.JanetFiber) *Fiber {
-        return @ptrCast(*Fiber, ptr);
+        return @as(*Fiber, @ptrCast(ptr));
     }
 
     pub fn init(callee: *Function, capacity: i32, argv: []const Janet) *Fiber {
         return fromC(c.janet_fiber(
             callee.toC(),
             capacity,
-            @intCast(i32, argv.len),
-            @ptrCast([*c]const c.Janet, argv.ptr),
+            @as(i32, @intCast(argv.len)),
+            @as([*c]const c.Janet, @ptrCast(argv.ptr)),
         ));
     }
     pub fn reset(self: *Fiber, callee: *Function, argv: []const Janet) *Fiber {
         return fromC(c.janet_fiber_reset(
             self.toC(),
             callee.toC(),
-            @intCast(i32, argv.len),
-            @ptrCast([*c]const c.Janet, argv.ptr),
+            @as(i32, @intCast(argv.len)),
+            @as([*c]const c.Janet, @ptrCast(argv.ptr)),
         ));
     }
     pub fn status(self: *Fiber) Status {
-        return @intToEnum(Status, c.janet_fiber_status(self.toC()));
+        return @as(Status, @enumFromInt(c.janet_fiber_status(self.toC())));
     }
     pub fn currentFiber() *Fiber {
         return fromC(c.janet_current_fiber());
@@ -1458,9 +1456,9 @@ pub const Fiber = extern struct {
     }
 
     pub fn @"continue"(fiber: *Fiber, in: Janet, out: *Janet) Signal.Error!void {
-        const signal = @ptrCast(
+        const signal = @as(
             *Signal,
-            &c.janet_continue(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out)),
+            @ptrCast(&c.janet_continue(fiber.toC(), in.toC(), @as(*c.Janet, @ptrCast(out)))),
         ).*;
         switch (signal) {
             .ok => {},
@@ -1468,21 +1466,21 @@ pub const Fiber = extern struct {
         }
     }
     pub fn continueSignal(fiber: *Fiber, in: Janet, out: *Janet, sig: Signal) Signal.Error!void {
-        const signal = @ptrCast(*Signal, &c.janet_continue_signal(
+        const signal = @as(*Signal, @ptrCast(&c.janet_continue_signal(
             fiber.toC(),
             in.toC(),
-            @ptrCast(*c.Janet, out),
-            @ptrCast(*const c.JanetSignal, &sig).*,
-        )).*;
+            @as(*c.Janet, @ptrCast(out)),
+            @as(*const c.JanetSignal, @ptrCast(&sig)).*,
+        ))).*;
         switch (signal) {
             .ok => {},
             else => return signal.toError(),
         }
     }
     pub fn step(fiber: *Fiber, in: Janet, out: *Janet) Signal.Error!void {
-        const signal = @ptrCast(
+        const signal = @as(
             *Signal,
-            &c.janet_step(fiber.toC(), in.toC(), @ptrCast(*c.Janet, out)),
+            @ptrCast(&c.janet_step(fiber.toC(), in.toC(), @as(*c.Janet, @ptrCast(out)))),
         ).*;
         switch (signal) {
             .ok => {},
@@ -1580,7 +1578,7 @@ pub fn unmarshal(bytes: []const u8, flags: c_int, reg: *Environment, next: [*]*c
         bytes.len,
         flags,
         reg.toC(),
-        @ptrCast([*c][*c]const u8, next),
+        @as([*c][*c]const u8, @ptrCast(next)),
     ));
 }
 pub const MarshalContext = extern struct {
@@ -1591,10 +1589,10 @@ pub const MarshalContext = extern struct {
     at: *AbstractType,
 
     pub fn toC(mc: *MarshalContext) *c.JanetMarshalContext {
-        return @ptrCast(*c.JanetMarshalContext, mc);
+        return @as(*c.JanetMarshalContext, @ptrCast(mc));
     }
     pub fn fromC(mc: *c.JanetMarshalContext) *MarshalContext {
-        return @ptrCast(*MarshalContext, mc);
+        return @as(*MarshalContext, @ptrCast(mc));
     }
 
     pub fn marshal(ctx: *MarshalContext, comptime T: type, value: T) void {
@@ -1646,7 +1644,7 @@ pub fn Abstract(comptime ValueType: type) type {
         const Self = @This();
         pub const Head = extern struct {
             gc: GCObject,
-            @"type": *Type,
+            type: *Type,
             size: usize,
             data: [*]c_longlong,
         };
@@ -1665,13 +1663,13 @@ pub fn Abstract(comptime ValueType: type) type {
             call: ?*const fn (p: *ValueType, argc: i32, argv: [*]Janet) callconv(.C) Janet = null,
 
             pub fn toC(self: *const Type) *const c.JanetAbstractType {
-                return @ptrCast(*const c.JanetAbstractType, self);
+                return @as(*const c.JanetAbstractType, @ptrCast(self));
             }
             pub fn fromC(p: *const c.JanetAbstractType) *const Type {
-                return @ptrCast(*const Type, p);
+                return @as(*const Type, @ptrCast(p));
             }
             pub fn toVoid(self: *const Type) *const Abstract(anyopaque).Type {
-                return @ptrCast(*const Abstract(anyopaque).Type, self);
+                return @as(*const Abstract(anyopaque).Type, @ptrCast(self));
             }
 
             pub fn register(self: *const Type) void {
@@ -1680,10 +1678,10 @@ pub fn Abstract(comptime ValueType: type) type {
         };
 
         pub fn toC(self: Self) *anyopaque {
-            return @ptrCast(*anyopaque, self.ptr);
+            return @as(*anyopaque, @ptrCast(self.ptr));
         }
         pub fn fromC(p: *anyopaque) Self {
-            return Self{ .ptr = @ptrCast(*ValueType, @alignCast(@alignOf(*ValueType), p)) };
+            return Self{ .ptr = @as(*ValueType, @ptrCast(@alignCast(p))) };
         }
 
         pub fn init(value: *const Type) Self {
@@ -2016,14 +2014,14 @@ fn cfunDec(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 fn cfunGetcounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
     fixArity(argc, 1);
     const st_abstract = getAbstract(argv, 0, ZigStruct, &zig_struct_abstract_type);
-    return wrap(i32, @bitCast(i32, st_abstract.ptr.counter));
+    return wrap(i32, @as(i32, @bitCast(st_abstract.ptr.counter)));
 }
 
 const zig_struct_cfuns = [_]Reg{
-    Reg{ .name = "struct-init", .cfun = cfunZigStruct },
-    Reg{ .name = "inc", .cfun = cfunInc },
-    Reg{ .name = "dec", .cfun = cfunDec },
-    Reg{ .name = "get-counter", .cfun = cfunGetcounter },
+    Reg{ .name = "struct-init", .cfun = &cfunZigStruct },
+    Reg{ .name = "inc", .cfun = &cfunInc },
+    Reg{ .name = "dec", .cfun = &cfunDec },
+    Reg{ .name = "get-counter", .cfun = &cfunGetcounter },
     Reg.empty,
 };
 
@@ -2122,9 +2120,9 @@ fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
     // HACK: allocating the key to be stored in our struct's `storage` via Janet's allocation
     // function which is never freed. I'm too lazy to implement allocating and deallocating of
     // strings via Zig's allocator, sorry.
-    var allocated_key = @ptrCast(
+    var allocated_key = @as(
         [*]u8,
-        @alignCast(@alignOf([*]u8), malloc(k.slice.len)),
+        @ptrCast(@alignCast(malloc(k.slice.len))),
     )[0..k.slice.len];
     std.mem.copy(u8, allocated_key, k.slice);
     st.storage.put(allocated_key, value) catch {
@@ -2137,13 +2135,13 @@ fn czsMarshal(st: *ComplexZigStruct, ctx: *MarshalContext) callconv(.C) void {
     Abstract(ComplexZigStruct).initFromPtr(st).marshal(ctx);
     // HACK: we can't marshal more than one abstract type, so we marshal the pointer as integer
     // since the allocator is global and will not change its pointer during program execution.
-    ctx.marshal(usize, @ptrToInt(&ally));
+    ctx.marshal(usize, @intFromPtr(&ally));
     ctx.marshal(i32, st.counter);
 }
 fn czsUnmarshal(ctx: *MarshalContext) callconv(.C) *ComplexZigStruct {
     const st_abstract = Abstract(ComplexZigStruct).unmarshal(ctx);
     const allyp = ctx.unmarshal(usize);
-    const ally = @intToPtr(*std.mem.Allocator, allyp);
+    const ally = @as(*std.mem.Allocator, @ptrFromInt(allyp));
     const counter = ctx.unmarshal(i32);
     st_abstract.ptr.counter = counter;
     st_abstract.ptr.storage = std.StringHashMap(Janet).init(ally.*);
@@ -2233,9 +2231,9 @@ fn cfunGetComplexCounter(argc: i32, argv: [*]const Janet) callconv(.C) Janet {
 }
 
 const complex_zig_struct_cfuns = [_]Reg{
-    Reg{ .name = "complex-struct-init", .cfun = cfunComplexZigStruct },
-    Reg{ .name = "get-counter", .cfun = cfunGetComplexCounter },
-    Reg{ .name = "alloc-init", .cfun = cfunInitZigAllocator },
+    Reg{ .name = "complex-struct-init", .cfun = &cfunComplexZigStruct },
+    Reg{ .name = "get-counter", .cfun = &cfunGetComplexCounter },
+    Reg{ .name = "alloc-init", .cfun = &cfunInitZigAllocator },
     Reg.empty,
 };
 
