@@ -39,8 +39,12 @@ If you want to just start using it, jump to the examples. Copy them or look
 at the source code, it is heavily commented. Every example also has a readme
 file.
 
-* [Embed Janet into Zig](examples/embed_janet)
-* [Write Janet module in Zig](examples/zig_module)
+WARNING: examples are currently **not working**:
+
+* [Embed Janet into Zig](examples/embed_janet) -- directory structure does not
+  allow to use `@import` to import a parent build.zig, need to re-structure.
+* [Write Janet module in Zig](examples/zig_module) -- the template is broken
+  and needs some investigation on how to fix it.
 
 Write bindings in Zig for a C library to be used as a Janet module - this
 is very close to "Write Janet module in Zig" example, you just need to
@@ -65,7 +69,7 @@ git submodule add https://github.com/greenfork/jzignet libpath
     // const exe = ...;
 
     exe.addModule("jzignet", jzignet.module("jzignet"));
-    exe.linkLibrary(jzignet.artifact("jzignet"));   const janet = b.addStaticLibrary("janet", null);
+    exe.linkLibrary(jzignet.artifact("jzignet"));
 ```
 
 3. Use In your Zig code
