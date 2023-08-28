@@ -27,8 +27,8 @@ wonderful languages:
   operations on types use methods instead of prefixed global functions.
 
 Currently supported versions:
-* Zig 0.10.0
-* Janet 1.25.1
+* Zig 0.11.0
+* Janet 1.29.1
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
 and at [GitHub](https://github.com/greenfork/jzignet).
@@ -53,27 +53,26 @@ library.
 
 1. Include git submodule into your library, assuming further that `libpath` is
    the directory where this library is installed
-   ```shell
-   git submodule add https://git.sr.ht/~greenfork/jzignet libpath
-   ```
+```shell
+git submodule add https://github.com/greenfork/jzignet libpath
+```
 
-2. Include bundled Janet in `build.zig`
-   ```zig
-   const janet = b.addStaticLibrary("janet", null);
-   janet.addCSourceFile("libpath/c/janet.c", &[_][]const u8{"-std=c99"});
-   janet.addIncludeDir("libpath/c");
-   janet.linkLibC();
-   ```
+2. Include the library in `build.zig`
+```zig
+    const jzignet = b.anonymousDependency("lib/jzignet", @import("lib/jzignet/build.zig"), .{});
 
-3. Link the bundled Janet to your program in `build.zig`. Here the example is
-   for an executable, for library it is similar, see the `build.zig` files
-   in the examples
-   ```zig
-   exe.linkLibC();
-   exe.linkLibrary(janet);
-   exe.addPackagePath("jzignet", "libpath/src/janet.zig");
-   exe.addIncludeDir("libpath/c");
-   ```
+    // your executable defined here
+    // const exe = ...;
+
+    exe.addModule("jzignet", jzignet.module("jzignet"));
+    exe.linkLibrary(jzignet.artifact("jzignet"));   const janet = b.addStaticLibrary("janet", null);
+```
+
+3. Use In your Zig code
+```zig
+const jzignet = @import("jzignet");
+```
+
 
 ## Differences with C API
 

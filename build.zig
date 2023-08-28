@@ -18,6 +18,7 @@ pub fn build(b: *std.build.Builder) void {
 
     const mod = b.addModule("jzignet", .{
         .source_file = .{ .path = "src/janet.zig" },
+        .dependencies = &.{.{ .name = "cjanet", .module = c_module }},
     });
     _ = mod;
 
