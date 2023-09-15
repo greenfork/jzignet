@@ -1,13 +1,11 @@
+//! # Example: Embed Janet into Zig
+//!
+//! If you don't have Zig installed, you can download it from the official Zig
+//! website <https://ziglang.org/download/>. You don't need Janet installed,
+//! Janet is built into this library.
+
 const std = @import("std");
 const j = @import("jzignet");
-
-// Check the version, just for a more friendly error message in case Zig version
-// is too small.
-comptime {
-    const current_version = std.SemanticVersion.parse("0.10.0") catch unreachable;
-    const comparison = @import("builtin").zig_version.order(current_version);
-    if (comparison == .lt) @compileError("Zig version must be at least 0.10.0");
-}
 
 // Function with a standard signature which can be imported to Janet.
 fn cfunAddNumbers(argc: i32, argv: [*]const j.Janet) callconv(.C) j.Janet {
