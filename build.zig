@@ -50,15 +50,15 @@ pub fn build(b: *std.build.Builder) void {
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);
 
-    const ex1 = b.addExecutable(.{
+    const embed_janet_exe = b.addExecutable(.{
         .name = "embed_janet",
         .root_source_file = .{ .path = "examples/embed_janet.zig" },
     });
 
-    ex1.addModule("jzignet", mod);
-    ex1.linkLibrary(lib);
+    embed_janet_exe.addModule("jzignet", mod);
+    embed_janet_exe.linkLibrary(lib);
 
-    b.installArtifact(ex1);
-    const run_ex1 = b.step("run-embed_janet", "Run embed_janet example");
-    run_ex1.dependOn(&b.addRunArtifact(ex1).step);
+    b.installArtifact(embed_janet_exe);
+    const run_embed_janet_exe = b.step("run-embed_janet", "Run embed_janet example");
+    run_embed_janet_exe.dependOn(&b.addRunArtifact(embed_janet_exe).step);
 }
