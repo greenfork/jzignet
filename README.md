@@ -36,13 +36,13 @@ and at [GitHub](https://github.com/greenfork/jzignet).
 ## How to use
 
 If you want to just start using it, jump to the examples. Copy them or look
-at the source code, it is heavily commented. Every example also has a readme
-file.
+at the source code, it is heavily commented.
+
+* [Embed Janet into Zig](examples/embed_janet.zig)  
+  Run this example with `zig build run-embed_janet`.
 
 WARNING: examples are currently **not working**:
 
-* [Embed Janet into Zig](examples/embed_janet) -- directory structure does not
-  allow to use `@import` to import a parent build.zig, need to re-structure.
 * [Write Janet module in Zig](examples/zig_module) -- the template is broken
   and needs some investigation on how to fix it.
 

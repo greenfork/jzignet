@@ -20,9 +20,8 @@ pub fn build(b: *std.build.Builder) void {
         .source_file = .{ .path = "src/janet.zig" },
         .dependencies = &.{.{ .name = "cjanet", .module = c_module }},
     });
-    _ = mod;
 
-    const janet_lib = b.addStaticLibrary(.{
+    const lib = b.addStaticLibrary(.{
         .name = "jzignet",
         .optimize = optimize,
         .target = target,
@@ -35,10 +34,10 @@ pub fn build(b: *std.build.Builder) void {
     if (no_nanbox) {
         janet_flags.appendSlice(&[_][]const u8{"-DJANET_NO_NANBOX"}) catch unreachable;
     }
-    janet_lib.linkLibC();
-    janet_lib.addIncludePath(.{ .path = "c" });
-    janet_lib.addCSourceFile(.{ .file = .{ .path = "c/janet.c" }, .flags = janet_flags.items });
-    b.installArtifact(janet_lib);
+    lib.linkLibC();
+    lib.addIncludePath(.{ .path = "c" });
+    lib.addCSourceFile(.{ .file = .{ .path = "c/janet.c" }, .flags = janet_flags.items });
+    b.installArtifact(lib);
 
     var tests = b.addTest(.{
         .root_source_file = .{ .path = "src/janet.zig" },
@@ -46,8 +45,20 @@ pub fn build(b: *std.build.Builder) void {
         .target = target,
     });
     tests.addModule("cjanet", c_module);
-    tests.linkLibrary(janet_lib);
+    tests.linkLibrary(lib);
 
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);
+
+    const ex1 = b.addExecutable(.{
+        .name = "embed_janet",
+        .root_source_file = .{ .path = "examples/embed_janet.zig" },
+    });
+
+    ex1.addModule("jzignet", mod);
+    ex1.linkLibrary(lib);
+
+    b.installArtifact(ex1);
+    const run_ex1 = b.step("run-embed_janet", "Run embed_janet example");
+    run_ex1.dependOn(&b.addRunArtifact(ex1).step);
 }
