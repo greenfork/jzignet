@@ -38,8 +38,11 @@ and at [GitHub](https://github.com/greenfork/jzignet).
 If you want to just start using it, jump to the examples. Copy them or look
 at the source code, it is heavily commented.
 
-* [Embed Janet into Zig](examples/embed_janet.zig)  
-  Run this example with `zig build run-embed_janet`.
+* [Embed Janet into Zig](examples/embed_janet.zig) --
+  run this example with `zig build run-embed_janet`.  
+  For a more in-depth overview of this use case you can take a look at
+  @iacore's [blog post](https://www.1a-insec.net/blog/16-buy-janet-get-gc-free/)
+  as well as the [example repository](https://git.envs.net/iacore/janet-zig-test).
 
 WARNING: examples are currently **not working**:
 
