@@ -28,7 +28,7 @@ wonderful languages:
 
 Currently supported versions:
 * Zig 0.11.0
-* Janet 1.29.1
+* Janet 1.31.0
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
 and at [GitHub](https://github.com/greenfork/jzignet).
