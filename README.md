@@ -54,72 +54,24 @@ is very close to "Write Janet module in Zig" example, you just need to
 know how to wrap a C library in Zig, this repository is a perfect example
 for this.
 
-## How to include as dependency (with git module)
+## How to include as a dependency (with zon)
 
-Currently you can include jzignet as a git submodule. Janet is bundled as
-a single C source amalgamation file and is compiled directly into this
-library.
-
-1. Include git submodule into your library, assuming further that `libpath` is
-   the directory where this library is installed
-```shell
-git submodule add https://github.com/greenfork/jzignet libpath
-```
-
-2. Include the library in `build.zig`
-```zig
-    const jzignet = b.anonymousDependency("lib/jzignet", @import("lib/jzignet/build.zig"), .{});
-
-    // your executable defined here
-    // const exe = ...;
-
-    exe.addModule("jzignet", jzignet.module("jzignet"));
-    exe.linkLibrary(jzignet.artifact("jzignet"));
-```
-
-3. Use In your Zig code
-```zig
-const jzignet = @import("jzignet");
-```
-
-## How to include as dependency (with zon)
-
-This method of including jzignet in your project is more complicated.
-
-First, create a file named `build.zig.zon` with the following content. Replace `<commit>` in the file with the git commit you want to use, for example, `943ace7`.
+1. Create a file named `build.zig.zon` with the following content.
 
 ```zig
 .{
-    .name = "hello-world",
+    .name = "janet-zig-test",
     .version = "0.0.1",
     .dependencies = .{
         .jzignet = .{
-	        .url = "https://github.com/greenfork/jzignet/archive/<commit>.tar.gz",
+            .url = "https://git.sr.ht/~greenfork/jzignet/archive/0.7.0.tar.gz",
+            .hash = "1220e5739ec063602a628d5b03265f7b55933158574e97dbac0696a73586d9416162",
         },
     },
 }
 ```
 
-Next, run `zig build`. There should be an error telling you to include `.hash = ......` in `build.zig.zon`. Paste the line from the terminal.
-
-If you do it right, `build.zig.zon` should now look like this.
-
-```zig
-.{
-    .name = "hello-world",
-    .version = "0.0.1",
-    .dependencies = .{
-        .jzignet = .{
-            .url = "https://github.com/greenfork/jzignet/archive/943ace7.tar.gz",
-            .hash = "12203bb35a3ae736ea1c384376fbc0132067153091e9fee7b7911f7c86d160828b9b",
-        },
-    },
-}
-```
-
-Run `zig build` again. If you see no errors, it is downloaded correctly.
-
-Next, add this to `build.zig`.
+2. Add this to `build.zig`.
 
 ```zig
     const jzignet = b.dependency("jzignet", .{ .target=target, .optimize=optimize });
@@ -131,7 +83,42 @@ Next, add this to `build.zig`.
     exe.linkLibrary(jzignet.artifact("jzignet"));
 ```
 
-That's it!
+3. Use in your Zig code
+
+```zig
+const jzignet = @import("jzignet");
+```
+
+## How to include as a dependency (with git submodule)
+
+Currently you can include jzignet as a git submodule. Janet is bundled as
+a single C source amalgamation file and is compiled directly into this
+library.
+
+1. Include git submodule into your library, assuming further that `libpath` is
+   the directory where this library is installed
+
+```shell
+git submodule add https://github.com/greenfork/jzignet libpath
+```
+
+2. Include the library in `build.zig`
+
+```zig
+    const jzignet = b.anonymousDependency("lib/jzignet", @import("lib/jzignet/build.zig"), .{});
+
+    // your executable defined here
+    // const exe = ...;
+
+    exe.addModule("jzignet", jzignet.module("jzignet"));
+    exe.linkLibrary(jzignet.artifact("jzignet"));
+```
+
+3. Use in your Zig code
+
+```zig
+const jzignet = @import("jzignet");
+```
 
 ## Differences with C API
 
