@@ -717,8 +717,8 @@ pub const KV = extern struct {
 pub const String = struct {
     slice: TypeImpl,
 
-    pub const TypeImpl = [:0]const u8;
-    pub const TypeC = [*:0]const u8;
+    pub const TypeImpl = []const u8;
+    pub const TypeC = [*]const u8;
     pub const Head = extern struct {
         gc: GCObject,
         length: i32,
@@ -730,7 +730,8 @@ pub const String = struct {
         return self.slice.ptr;
     }
     pub fn fromC(ptr: TypeC) String {
-        return String{ .slice = std.mem.span(ptr) };
+        const len: usize = @intCast(c.janet_string_head(ptr).*.length);
+        return String{ .slice = ptr[0..len] };
     }
 
     pub fn init(buf: []u8) String {
@@ -769,14 +770,15 @@ pub const String = struct {
 pub const Symbol = struct {
     slice: TypeImpl,
 
-    pub const TypeImpl = [:0]const u8;
-    pub const TypeC = [*:0]const u8;
+    pub const TypeImpl = []const u8;
+    pub const TypeC = [*]const u8;
 
     pub fn toC(self: Symbol) TypeC {
         return self.slice.ptr;
     }
     pub fn fromC(ptr: TypeC) Symbol {
-        return Symbol{ .slice = std.mem.span(ptr) };
+        const len: usize = @intCast(c.janet_string_head(ptr).*.length);
+        return Symbol{ .slice = ptr[0..len] };
     }
 
     pub fn init(str: []const u8) Symbol {
@@ -795,14 +797,15 @@ pub const Symbol = struct {
 pub const Keyword = struct {
     slice: TypeImpl,
 
-    pub const TypeImpl = [:0]const u8;
-    pub const TypeC = [*:0]const u8;
+    pub const TypeImpl = []const u8;
+    pub const TypeC = [*]const u8;
 
     pub fn toC(self: Keyword) TypeC {
         return self.slice.ptr;
     }
     pub fn fromC(ptr: TypeC) Keyword {
-        return Keyword{ .slice = std.mem.span(ptr) };
+        const len: usize = @intCast(c.janet_string_head(ptr).*.length);
+        return Keyword{ .slice = ptr[0..len] };
     }
 
     pub fn init(str: []const u8) Keyword {
