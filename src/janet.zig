@@ -1352,15 +1352,8 @@ pub const Function = extern struct {
             else => return signal.toError(),
         }
     }
-    pub fn call(fun: *Function, argv: []const Janet) Signal.Error!void {
-        const signal = @as(
-            *const Signal,
-            @ptrCast(&c.janet_call(fun.toC(), @as(i32, @intCast(argv.len)), Janet.toConstPtr(argv.ptr))),
-        ).*;
-        switch (signal) {
-            .ok => {},
-            else => return signal.toError(),
-        }
+    pub fn call(fun: *Function, argv: []const Janet) Janet {
+        return Janet.fromC(c.janet_call(fun.toC(), @as(i32, @intCast(argv.len)), Janet.toConstPtr(argv.ptr)));
     }
 };
 
