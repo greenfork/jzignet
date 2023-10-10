@@ -1753,7 +1753,7 @@ pub const View = extern struct {
     len: i32,
 
     pub fn slice(self: View) []const Janet {
-        return self.items[0..self.len];
+        return self.items[0..@intCast(self.len)];
     }
 };
 
@@ -1762,7 +1762,7 @@ pub const ByteView = extern struct {
     len: i32,
 
     pub fn slice(self: ByteView) []const u8 {
-        return self.bytes[0..self.len];
+        return self.bytes[0..@intCast(self.len)];
     }
 };
 
@@ -1772,7 +1772,7 @@ pub const DictView = extern struct {
     cap: i32,
 
     pub fn slice(self: DictView) []const KV {
-        return self.kvs[0..self.cap];
+        return self.kvs[0..@intCast(self.cap)];
     }
 };
 
@@ -2122,8 +2122,8 @@ fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
     // strings via Zig's allocator, sorry.
     var allocated_key = @as(
         [*]u8,
-        @ptrCast(@alignCast(malloc(k.slice.len))),
-    )[0..k.slice.len];
+        @ptrCast(@alignCast(malloc(@intCast(k.slice.len)))),
+    )[0..@intCast(k.slice.len)];
     std.mem.copy(u8, allocated_key, k.slice);
     st.storage.put(allocated_key, value) catch {
         panic("Out of memory");
