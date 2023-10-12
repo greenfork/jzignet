@@ -2291,17 +2291,3 @@ test "function call" {
     try func.pcall(&[_]Janet{ wrap(i32, 2), wrap(i32, 2) }, &sum, null);
     try testing.expectEqual(@as(i32, 4), try sum.unwrap(i32));
 }
-
-test "os/execute" {
-    if (@import("builtin").target.os.tag == .linux) {
-        try init();
-        defer deinit();
-        const env = Environment.coreEnv(null);
-        // todo: maybe spork/sh is not installed
-        const value = try env.doString(
-            \\(import spork/sh) (sh/exec-slurp "uname")
-        , "main");
-        const s = try value.unwrap(String); // it should be string
-        try testing.expectEqualStrings("Linux", std.mem.span(@as([*:0]const u8, @ptrCast(s.slice.ptr))));
-    }
-}
