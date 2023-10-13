@@ -64,8 +64,8 @@ for this.
     .version = "0.0.1",
     .dependencies = .{
         .jzignet = .{
-            .url = "https://git.sr.ht/~greenfork/jzignet/archive/0.7.0.tar.gz",
-            .hash = "1220e5739ec063602a628d5b03265f7b55933158574e97dbac0696a73586d9416162",
+            .url = "https://git.sr.ht/~greenfork/jzignet/archive/0.7.1.tar.gz",
+            .hash = "1220877268c45717ba8e141cb2c328a937c3577faca7915ad1bd37e7ea1097d5b0d5",
         },
     },
 }
