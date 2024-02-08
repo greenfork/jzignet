@@ -2291,3 +2291,62 @@ test "function call" {
     try func.pcall(&[_]Janet{ wrap(i32, 2), wrap(i32, 2) }, &sum, null);
     try testing.expectEqual(@as(i32, 4), try sum.unwrap(i32));
 }
+
+pub const ParserStatus = enum(c_int) {
+    root = 0,
+    @"error" = 1,
+    pending = 2,
+    dead = 3,
+};
+
+pub const Parser = struct {
+    inner: c.JanetParser,
+
+    pub fn init() Parser {
+        var self: Parser = undefined;
+        c.janet_parser_init(&self.inner);
+        return self;
+    }
+    pub fn deinit(self: *Parser) void {
+        c.janet_parser_deinit(&self.inner);
+    }
+    pub fn consume(self: *Parser, char: u8) void {
+        return c.janet_parser_consume(&self.inner, char);
+    }
+    pub fn status(self: *Parser) ParserStatus {
+        return @enumFromInt(c.janet_parser_status(&self.inner));
+    }
+    pub fn produce(self: *Parser) Janet {
+        return Janet.fromC(c.janet_parser_produce(&self.inner));
+    }
+    pub fn produceWrapped(self: *Parser) Janet {
+        return Janet.fromC(c.janet_parser_produce_wrapped(&self.inner));
+    }
+    pub fn @"error"(self: *Parser) ?[*:0]const u8 {
+        return c.janet_parser_error(&self.inner);
+    }
+    pub fn flush(self: *Parser) void {
+        return c.janet_parser_flush(&self.inner);
+    }
+    pub fn eof(self: *Parser) void {
+        return c.janet_parser_eof(&self.inner);
+    }
+    pub fn hasMore(self: *Parser) bool {
+        return 0 != c.janet_parser_has_more(&self.inner);
+    }
+};
+
+test "Parser" {
+    try init();
+    defer deinit();
+    var parser = Parser.init();
+    defer parser.deinit();
+    parser.consume(0);
+    _ = parser.status();
+    _ = parser.produce();
+    _ = parser.produceWrapped();
+    _ = parser.@"error"();
+    _ = parser.flush();
+    _ = parser.eof();
+    _ = parser.hasMore();
+}
