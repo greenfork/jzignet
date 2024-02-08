@@ -2291,3 +2291,62 @@ test "function call" {
     try func.pcall(&[_]Janet{ wrap(i32, 2), wrap(i32, 2) }, &sum, null);
     try testing.expectEqual(@as(i32, 4), try sum.unwrap(i32));
 }
+
+pub const ParserStatus = enum(c_int) {
+    root = 0,
+    @"error" = 1,
+    pending = 2,
+    dead = 3,
+};
+
+pub const Parser = struct {
+    inner: c.JanetParser,
+
+    pub fn init() @This() {
+        var this: @This() = undefined;
+        c.janet_parser_init(&this.inner);
+        return this;
+    }
+    pub fn deinit(this: *@This()) void {
+        c.janet_parser_deinit(&this.inner);
+    }
+    pub fn consume(this: *@This(), char: u8) void {
+        return c.janet_parser_consume(&this.inner, char);
+    }
+    pub fn status(this: *@This()) ParserStatus {
+        return @enumFromInt(c.janet_parser_status(&this.inner));
+    }
+    pub fn produce(this: *@This()) Janet {
+        return Janet.fromC(c.janet_parser_produce(&this.inner));
+    }
+    pub fn produceWrapped(this: *@This()) Janet {
+        return Janet.fromC(c.janet_parser_produce_wrapped(&this.inner));
+    }
+    pub fn @"error"(this: *@This()) [*c]const u8 {
+        return c.janet_parser_error(&this.inner);
+    }
+    pub fn flush(this: *@This()) void {
+        return c.janet_parser_flush(&this.inner);
+    }
+    pub fn eof(this: *@This()) void {
+        return c.janet_parser_eof(&this.inner);
+    }
+    pub fn hasMore(this: *@This()) c_int {
+        return c.janet_parser_has_more(&this.inner);
+    }
+};
+
+test "Parser" {
+    try init();
+    defer deinit();
+    var parser = Parser.init();
+    defer parser.deinit();
+    parser.consume(0);
+    _ = parser.status();
+    _ = parser.produce();
+    _ = parser.produceWrapped();
+    _ = parser.@"error"();
+    _ = parser.flush();
+    _ = parser.eof();
+    _ = parser.hasMore();
+}
