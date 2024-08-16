@@ -995,7 +995,7 @@ pub const Struct = struct {
     }
 
     pub fn initN(kvs: []const KV) Struct {
-        var st = begin(@as(i32, @intCast(kvs.len)));
+        const st = begin(@as(i32, @intCast(kvs.len)));
         for (kvs) |kv| put(st, kv.key, kv.value);
         return end(st);
     }
@@ -2116,11 +2116,11 @@ fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
     // HACK: allocating the key to be stored in our struct's `storage` via Janet's allocation
     // function which is never freed. I'm too lazy to implement allocating and deallocating of
     // strings via Zig's allocator, sorry.
-    var allocated_key = @as(
+    const allocated_key = @as(
         [*]u8,
         @ptrCast(@alignCast(malloc(@intCast(k.slice.len)))),
     )[0..@intCast(k.slice.len)];
-    std.mem.copy(u8, allocated_key, k.slice);
+    @memcpy(allocated_key, k.slice);
     st.storage.put(allocated_key, value) catch {
         panic("Out of memory");
     };
