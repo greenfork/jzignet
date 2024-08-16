@@ -43,7 +43,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
-    tests.root_module.addImport("jzignet", c_header.createModule());
+    tests.root_module.addImport("cjanet", c_header.createModule());
+    tests.root_module.addImport("jzignet", mod);
     tests.linkLibrary(lib);
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);

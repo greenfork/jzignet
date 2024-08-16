@@ -2120,7 +2120,7 @@ fn czsPut(st: *ComplexZigStruct, key: Janet, value: Janet) callconv(.C) void {
         [*]u8,
         @ptrCast(@alignCast(malloc(@intCast(k.slice.len)))),
     )[0..@intCast(k.slice.len)];
-    std.mem.copy(u8, allocated_key, k.slice);
+    @memcpy(allocated_key, k.slice);
     st.storage.put(allocated_key, value) catch {
         panic("Out of memory");
     };
