@@ -1,24 +1,21 @@
 const std = @import("std");
 
-pub fn build(b: *std.build.Builder) void {
-    var ally = b.allocator;
+pub fn build(b: *std.Build) void {
+    const ally = b.allocator;
 
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
     const no_nanbox = b.option(bool, "no_nanbox", "Do not use nanbox implementation of Janet (default false)") orelse false;
 
     const c_header = b.addTranslateC(.{
-        .source_file = .{ .path = "c/janet.h" },
+        .root_source_file = b.path("c/janet.h"),
         .optimize = optimize,
         .target = target,
     });
-    const c_module = b.addModule("cjanet", .{
-        .source_file = .{ .generated = &c_header.output_file },
-    });
 
     const mod = b.addModule("jzignet", .{
-        .source_file = .{ .path = "src/janet.zig" },
-        .dependencies = &.{.{ .name = "cjanet", .module = c_module }},
+        .root_source_file = b.path("src/janet.zig"),
+        .imports = &.{.{ .name = "cjanet", .module = c_header.createModule() }},
     });
 
     const lib = b.addStaticLibrary(.{
@@ -26,6 +23,7 @@ pub fn build(b: *std.build.Builder) void {
         .optimize = optimize,
         .target = target,
     });
+
     var janet_flags = std.ArrayList([]const u8).init(ally);
     janet_flags.appendSlice(&[_][]const u8{"-std=c99"}) catch unreachable;
     if (optimize != .Debug) {
@@ -35,27 +33,28 @@ pub fn build(b: *std.build.Builder) void {
         janet_flags.appendSlice(&[_][]const u8{"-DJANET_NO_NANBOX"}) catch unreachable;
     }
     lib.linkLibC();
-    lib.addIncludePath(.{ .path = "c" });
-    lib.addCSourceFile(.{ .file = .{ .path = "c/janet.c" }, .flags = janet_flags.items });
+    lib.addIncludePath(b.path("c"));
+    lib.addCSourceFile(.{ .file = b.path("c/janet.c"), .flags = janet_flags.items });
     b.installArtifact(lib);
 
     var tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/janet.zig" },
+        .root_source_file = b.path("src/janet.zig"),
         .optimize = optimize,
         .target = target,
     });
-    tests.addModule("cjanet", c_module);
-    tests.linkLibrary(lib);
 
+    tests.root_module.addImport("jzignet", c_header.createModule());
+    tests.linkLibrary(lib);
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);
 
     const embed_janet_exe = b.addExecutable(.{
         .name = "embed_janet",
-        .root_source_file = .{ .path = "examples/embed_janet.zig" },
+        .target = target,
+        .root_source_file = b.path("examples/embed_janet.zig"),
     });
 
-    embed_janet_exe.addModule("jzignet", mod);
+    embed_janet_exe.root_module.addImport("jzignet", mod);
     embed_janet_exe.linkLibrary(lib);
 
     b.installArtifact(embed_janet_exe);
