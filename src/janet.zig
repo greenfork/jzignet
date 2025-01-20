@@ -1447,6 +1447,14 @@ pub const Fiber = extern struct {
         return fromC(c.janet_root_fiber());
     }
 
+    pub fn setDyn(name: [*:0]const u8, value: Janet) void {
+        c.janet_setdyn(name, value.toC());
+    }
+
+    pub fn dyn(name: [*:0]const u8) Janet {
+        return Janet.fromC(c.janet_dyn(name));
+    }
+
     pub fn wrap(self: *Fiber) Janet {
         return Janet.fromC(c.janet_wrap_fiber(self.toC()));
     }
