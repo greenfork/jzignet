@@ -28,7 +28,7 @@ wonderful languages:
 
 Currently supported versions:
 * Zig 0.13.0
-* Janet 1.31.0
+* Janet 1.37.1
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
 and at [GitHub](https://github.com/greenfork/jzignet).
@@ -56,7 +56,9 @@ for this.
 
 ## How to include as a dependency (with zon)
 
-1. Create a file named `build.zig.zon` with the following content.
+1. Create a file named `build.zig.zon` with the following content. Put the
+   correct version for tar archive, and change the `.hash` value when you get
+   and error.
 
 ```zig
 .{

@@ -1,8 +1,12 @@
 # Changelog
 
-## Development
+## 0.7.5
 
-Reserved space.
+* Janet was upgraded to 1.37.1
+
+## 0.7.4
+
+* Zig was upgraded to 0.13.0
 
 ## 0.7.0
 
