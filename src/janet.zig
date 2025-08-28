@@ -447,7 +447,7 @@ pub const TFLAG_CALLABLE = TFLAG_FUNCTION | TFLAG_CFUNCTION | TFLAG_LENGTHABLE |
 
 pub const Janet = blk: {
     if (JANET_NO_NANBOX or
-        builtin.target.cpu.arch.isARM() or
+        builtin.target.cpu.arch == .arm or
         builtin.target.cpu.arch == .aarch64)
     {
         break :blk extern struct {
