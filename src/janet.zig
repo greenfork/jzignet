@@ -129,10 +129,10 @@ pub fn panic(message: [:0]const u8) noreturn {
     c.janet_panic(message.ptr);
 }
 pub fn print(message: [:0]const u8) void {
-    c.janet_dynprintf("out", std.io.getStdOut().handle, message.ptr);
+    c.janet_dynprintf("out", c.stdout, message.ptr);
 }
 pub fn eprint(message: [:0]const u8) void {
-    c.janet_dynprintf("err", std.io.getStdErr().handle, message.ptr);
+    c.janet_dynprintf("err", c.stderr, message.ptr);
 }
 
 pub fn arity(ary: i32, min: i32, max: i32) void {
@@ -1391,7 +1391,7 @@ pub const Fiber = extern struct {
     child: *Fiber,
     last_value: Janet,
     // #ifdef JANET_EV
-    waiting: *ListenerState,
+    waiting: ?*anyopaque, // *ListenerState - using anyopaque to break circular dependency
     sched_id: i32,
     supervisor_channel: *anyopaque,
 
@@ -1546,8 +1546,6 @@ pub const Stream = extern struct {
     _mask: c_int,
 };
 
-pub const Listener = *const fn (state: *ListenerState, event: AsyncEvent) callconv(.C) AsyncStatus;
-
 pub const AsyncStatus = enum(c_int) {
     not_done,
     done,
@@ -1566,6 +1564,8 @@ pub const AsyncEvent = enum(c_int) {
     complete,
     user,
 };
+
+pub const Listener = *const fn (state: *anyopaque, event: AsyncEvent) callconv(.C) AsyncStatus;
 
 pub const SourceMapping = extern struct {
     line: i32,
