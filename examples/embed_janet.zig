@@ -1,7 +1,7 @@
 //! # Example: Embed Janet into Zig
 //!
 //! If you don't have Zig installed, you can download it from the official Zig
-//! website <https://ziglang.org/download/>. You don't need Janet installed,
+//! website <https://ziglang.org/download/>. You don't need to install Janet,
 //! Janet is built into this library.
 
 const std = @import("std");
@@ -44,5 +44,5 @@ pub fn main() anyerror!void {
     const number = try value.unwrap(i32);
 
     // Ta-dam!
-    std.debug.print("the true answer is {d}\n", .{number});
+    std.debug.print("Running embed_janet: the true answer is {d}\n", .{number});
 }
