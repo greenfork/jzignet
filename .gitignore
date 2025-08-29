@@ -1,7 +1,17 @@
+.zig-cache/
 zig-cache/
 zig-out/
+/release/
+/debug/
+/build/
+/build-*/
+/docgen_tmp/
 
 .ccls-cache/
+
+# Direnv
+.envrc
+/.direnv
 
 # Test files
 me.c

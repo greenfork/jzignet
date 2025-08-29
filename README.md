@@ -27,7 +27,7 @@ wonderful languages:
   operations on types use methods instead of prefixed global functions.
 
 Currently supported versions:
-* Zig 0.13.0
+* Zig 0.14.1
 * Janet 1.37.1
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)
@@ -39,7 +39,7 @@ If you want to just start using it, jump to the examples. Copy them or look
 at the source code, it is heavily commented.
 
 * [Embed Janet into Zig](examples/embed_janet.zig) --
-  run this example with `zig build run-embed_janet`.  
+  run this example with `zig build run-embed_janet`.
   For a more in-depth overview of this use case you can take a look at
   @iacore's [blog post](https://www.1a-insec.net/blog/16-buy-janet-get-gc-free/)
   as well as the [example repository](https://git.envs.net/iacore/janet-zig-test).
@@ -56,21 +56,11 @@ for this.
 
 ## How to include as a dependency (with zon)
 
-1. Create a file named `build.zig.zon` with the following content. Put the
-   correct version for tar archive, and change the `.hash` value when you get
-   and error.
+1. Make sure your project has a `build.zig.zon` then run the following command for Zig to add
+   jzignet as a dependency.
 
-```zig
-.{
-    .name = "janet-zig-test",
-    .version = "0.0.1",
-    .dependencies = .{
-        .jzignet = .{
-            .url = "https://git.sr.ht/~greenfork/jzignet/archive/0.7.2.tar.gz",
-            .hash = "122087fa45b016bd8ce5fbadd17ef2bd84cd1389119edd3c345486870032ea2b7217",
-        },
-    },
-}
+```bash
+zig fetch --save https://github.com/greenfork/jzignet/archive/master.tar.gz
 ```
 
 2. Add this to `build.zig`.
@@ -150,7 +140,7 @@ const jzignet = @import("jzignet");
   ```c
   int janet_dobytes(JanetTable *env, const uint8_t *bytes, int32_t len, const char *sourcePath, Janet *out);
   ```
-  
+
   becomes
   ```zig
   pub fn doBytes(env: *Environment, bytes: []const u8, source_path: [:0]const u8) !Janet
