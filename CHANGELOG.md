@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.6
+
+* Zig was upgraded to 0.14.1
+
 ## 0.7.5
 
 * Janet was upgraded to 1.37.1
