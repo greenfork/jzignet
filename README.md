@@ -27,7 +27,7 @@ wonderful languages:
   operations on types use methods instead of prefixed global functions.
 
 Currently supported versions:
-* Zig 0.15.2
+* Zig 0.16
 * Janet 1.37.1
 
 Repository is available at [sourcehut](https://git.sr.ht/~greenfork/jzignet)

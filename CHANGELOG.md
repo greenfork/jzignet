@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+* Zig was upgraded to 0.16
+
 ## 0.8.0
 
 * Zig was upgraded to 0.15.2
