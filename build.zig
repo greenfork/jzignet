@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{.{ .name = "cjanet", .module = c_header.createModule() }},
         .optimize = optimize,
         .target = target,
+        .link_libc = true,
     });
 
     const lib = b.addLibrary(.{
@@ -26,7 +27,7 @@ pub fn build(b: *std.Build) void {
         .root_module = mod,
     });
 
-    var janet_flags: std.ArrayList([]const u8) = .{};
+    var janet_flags: std.ArrayList([]const u8) = .empty;
     janet_flags.appendSlice(ally, &[_][]const u8{"-std=c99"}) catch unreachable;
     if (optimize != .Debug) {
         janet_flags.appendSlice(ally, &[_][]const u8{ "-O2", "-flto" }) catch unreachable;
@@ -34,9 +35,8 @@ pub fn build(b: *std.Build) void {
     if (no_nanbox) {
         janet_flags.appendSlice(ally, &[_][]const u8{"-DJANET_NO_NANBOX"}) catch unreachable;
     }
-    lib.linkLibC();
-    lib.addIncludePath(b.path("c"));
-    lib.addCSourceFile(.{ .file = b.path("c/janet.c"), .flags = janet_flags.items });
+    lib.root_module.addIncludePath(b.path("c"));
+    lib.root_module.addCSourceFile(.{ .file = b.path("c/janet.c"), .flags = janet_flags.items });
     b.installArtifact(lib);
 
     const jzignet_module = b.addModule("jzignet", .{
@@ -51,7 +51,7 @@ pub fn build(b: *std.Build) void {
 
     tests.root_module.addImport("cjanet", c_header.createModule());
     tests.root_module.addImport("jzignet", mod);
-    tests.linkLibrary(lib);
+    tests.root_module.linkLibrary(lib);
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);
 
@@ -61,13 +61,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const embed_janet_exe = b.addExecutable(.{
-        .name = "embed_janet",
-        .root_module = embed_janet_module
-    });
+    const embed_janet_exe = b.addExecutable(.{ .name = "embed_janet", .root_module = embed_janet_module });
 
     embed_janet_exe.root_module.addImport("jzignet", mod);
-    embed_janet_exe.linkLibrary(lib);
+    embed_janet_exe.root_module.linkLibrary(lib);
 
     b.installArtifact(embed_janet_exe);
     const run_embed_janet_exe = b.step("run-embed_janet", "Run embed_janet example");
