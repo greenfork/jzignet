@@ -5,6 +5,8 @@
 * Zig was upgraded to 0.16
 * Janet was upgraded to 1.39.1
 
+Janet 1.40.0 doesn't pass abstract type tests with segfault :(
+
 ## 0.8.0
 
 * Zig was upgraded to 0.15.2
