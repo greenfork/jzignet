@@ -1876,7 +1876,7 @@ test "hello world" {
     try init();
     defer deinit();
     const env = Environment.coreEnv(null);
-    _ = try env.doString("(print `hello, world!`)", "main");
+    _ = try env.doString("(eprint `hello, world!`)", "main");
 }
 
 test "unwrap values" {
