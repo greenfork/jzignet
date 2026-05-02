@@ -3,6 +3,7 @@
 ## 0.9.0
 
 * Zig was upgraded to 0.16
+* Janet was upgraded to 1.39.1
 
 ## 0.8.0
 
