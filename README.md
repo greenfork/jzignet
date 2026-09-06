@@ -1,3 +1,17 @@
+# Unmaintained
+
+I haven't used it for some time and don't plan for any improvements.
+The build is also broken for Janet 1.40 which I don't intend to fix.
+Feel free to fork.
+
+As an alternative, see ifreund's rijan build system:
+
+https://codeberg.org/ifreund/rijan/src/branch/main/build.zig
+
+and ifreund's bindings:
+
+https://codeberg.org/ifreund/zig-janet
+
 # Jzignet
 
 [Zig](https://ziglang.org/) is a general-purpose programming language and
